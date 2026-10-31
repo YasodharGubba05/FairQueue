@@ -1,0 +1,73 @@
+# Local development stack. Postgres holds permanent data, Redis holds the
+# fast temporary state (queue, holds, stats). api is stateless so it can be
+# replicated; worker is the single process that admits users and expires holds.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fairqueue}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fairqueue}
+      POSTGRES_DB: ${POSTGRES_DB:-fairqueue}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fairqueue} -d ${POSTGRES_DB:-fairqueue}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fairqueue}:${POSTGRES_PASSWORD:-fairqueue}@postgres:5432/${POSTGRES_DB:-fairqueue}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      MODE: ${MODE:-fairqueue}
+      API_PORT: "4000"
+      POD_NAME: api-local
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fairqueue}:${POSTGRES_PASSWORD:-fairqueue}@postgres:5432/${POSTGRES_DB:-fairqueue}?schema=public
+      REDIS_URL: redis://redis:6379
+      MODE: ${MODE:-fairqueue}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

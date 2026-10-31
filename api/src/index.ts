@@ -1,0 +1,106 @@
+import http from 'node:http';
+import express from 'express';
+import cors from 'cors';
+import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { env, isNaive } from './env';
+import { prisma } from './db';
+import { redis, createPubSubPair } from './redis';
+import { keys, TTL } from './keys';
+import { setIo, eventRoom } from './io';
+import { healthRouter } from './routes/health';
+import { authRouter } from './routes/auth';
+import { eventsRouter } from './routes/events';
+import { seatsRouter } from './routes/seats';
+import { checkoutRouter } from './routes/checkout';
+import { queueRouter } from './routes/queue';
+import { startBroadcastBridge } from './broadcast';
+
+export const app = express();
+app.set('trust proxy', true);
+app.use(cors());
+app.use(express.json({ limit: '64kb' }));
+
+// Mount routes
+app.use(healthRouter);
+app.use(authRouter);
+app.use(eventsRouter);
+app.use(queueRouter);
+app.use(seatsRouter);
+app.use(checkoutRouter);
+
+export const server = http.createServer(app);
+export const io = new Server(server, { cors: { origin: '*' }, path: '/socket.io' });
+
+// Any api pod may need to push an update to a browser connected to a different
+// pod, so all pods share one Socket.io backbone through Redis pub/sub.
+const { pub, sub } = createPubSubPair();
+io.adapter(createAdapter(pub, sub));
+setIo(io);
+
+// Forward the worker's per-second queue broadcast to the browsers on this pod.
+const broadcastSub = startBroadcastBridge();
+
+// A browser joins the room for the event it is watching, so a seat update only
+// travels to the people looking at that event.
+io.on('connection', (socket) => {
+  socket.on('event:subscribe', (eventId: unknown) => {
+    if (typeof eventId === 'string' && eventId.length > 0) socket.join(eventRoom(eventId));
+  });
+  socket.on('event:unsubscribe', (eventId: unknown) => {
+    if (typeof eventId === 'string' && eventId.length > 0) socket.leave(eventRoom(eventId));
+  });
+});
+
+// Heartbeat with a 10 second expiry. Mission Control counts these keys to show
+// how many api pods are alive; a dead pod's key just disappears on its own.
+let heartbeat: NodeJS.Timeout | null = null;
+
+async function setupModeConstraints() {
+  try {
+    if (isNaive) {
+      // In naive mode, drop the UNIQUE constraint so concurrent read-then-write checkouts
+      // demonstrate double-selling during load testing.
+      await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS "Ticket_eventId_seatId_key"`);
+    } else {
+      // In fairqueue mode, guarantee the unique index as the last line of defense.
+      await prisma.$executeRawUnsafe(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "Ticket_eventId_seatId_key" ON "Ticket"("eventId", "seatId")`
+      );
+    }
+  } catch (err) {
+    console.warn('[api] setupModeConstraints warning:', (err as Error).message);
+  }
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  void setupModeConstraints();
+
+  heartbeat = setInterval(() => {
+    redis
+      .set(keys.pod(env.POD_NAME), Date.now().toString(), 'EX', TTL.POD_HEARTBEAT_SECONDS)
+      .catch(() => {});
+  }, 5000);
+
+  server.listen(env.API_PORT, () => {
+    console.log(`[api] mode=${env.MODE} pod=${env.POD_NAME} listening on :${env.API_PORT}`);
+  });
+}
+
+async function shutdown(signal: string) {
+  console.log(`[api] ${signal} received, shutting down`);
+  if (heartbeat) clearInterval(heartbeat);
+  await redis.del(keys.pod(env.POD_NAME)).catch(() => {});
+  server.close();
+  await Promise.allSettled([
+    prisma.$disconnect(),
+    redis.quit(),
+    pub.quit(),
+    sub.quit(),
+    broadcastSub.quit(),
+  ]);
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));

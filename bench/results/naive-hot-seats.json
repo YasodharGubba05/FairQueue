@@ -1,0 +1,16 @@
+{
+  "test": "hot-seats",
+  "mode": "naive",
+  "timestamp": "2026-10-28T06:32:47.459Z",
+  "concurrency_vus": 100,
+  "iterations": 500,
+  "target_seats": 50,
+  "total_requests": 550,
+  "requests_per_sec": 444.1,
+  "p95_latency_ms": 48.3,
+  "http_error_rate": 0.658,
+  "total_orders_created": 138,
+  "total_tickets_created": 138,
+  "oversold_seats": 41,
+  "duplicate_tickets": 90
+}

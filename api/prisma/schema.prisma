@@ -1,0 +1,100 @@
+// Permanent record of what was sold. Redis holds the fast temporary state
+// (queue, holds); anything we must never lose lives here.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  BUYER
+  ADMIN
+}
+
+enum EventStatus {
+  UPCOMING
+  LIVE
+  PAUSED
+  SOLD_OUT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(BUYER)
+  createdAt    DateTime @default(now())
+
+  orders Order[]
+}
+
+model Event {
+  id              String      @id @default(cuid())
+  name            String
+  venue           String
+  startsAt        DateTime
+  saleOpensAt     DateTime
+  status          EventStatus @default(UPCOMING)
+  // How many queued users the worker admits each second.
+  admitPerSec     Int         @default(50)
+  maxSeatsPerUser Int         @default(4)
+  createdAt       DateTime    @default(now())
+
+  seats   Seat[]
+  orders  Order[]
+  tickets Ticket[]
+}
+
+model Seat {
+  id      String @id @default(cuid())
+  eventId String
+  section String
+  row     String
+  number  Int
+  // Price in cents, so money is never a float.
+  price   Int
+  // Position on the SVG seat map.
+  x       Float
+  y       Float
+
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+
+  @@unique([eventId, section, row, number])
+  @@index([eventId])
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  total     Int
+  createdAt DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+
+  @@index([userId])
+  @@index([eventId])
+}
+
+model Ticket {
+  id      String @id @default(cuid())
+  orderId String
+  eventId String
+  seatId  String
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  seat  Seat  @relation(fields: [seatId], references: [id], onDelete: Cascade)
+
+  // The last line of defense against double-selling: even if every lock above
+  // this fails, the database physically cannot store the same seat twice.
+  @@unique([eventId, seatId])
+  @@index([orderId])
+}
