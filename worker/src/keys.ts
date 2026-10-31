@@ -10,6 +10,8 @@ export const keys = {
   sold: (eventId: string) => `sold:${eventId}`,
   userSeats: (eventId: string, userId: string) => `userseats:${eventId}:${userId}`,
   stat: (eventId: string, name: string) => `stats:${eventId}:${name}`,
+  /** Live api pods: podName scored by the ms it last checked in. */
+  pods: 'pods:api',
 };
 
 /** Channel the worker publishes on; every api pod listens and forwards to its browsers. */
@@ -19,4 +21,5 @@ export const BROADCAST_CHANNEL = 'fq:broadcast';
 export const TTL = {
   PASS_SECONDS: 10 * 60,
   HOLD_SECONDS: 5 * 60,
+  POD_HEARTBEAT_SECONDS: 10,
 };

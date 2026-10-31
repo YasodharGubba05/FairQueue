@@ -4,6 +4,7 @@ import { env } from './env';
 import { keys, BROADCAST_CHANNEL, TTL } from './keys';
 import { ADMIT_LUA } from './lua/admit';
 import { EXPIRE_HOLDS_LUA } from './lua/expire';
+import { buildStats, nextTick, prunePods } from './stats';
 
 /**
  * The worker is the one process that is allowed to move the line forward.
@@ -11,6 +12,7 @@ import { EXPIRE_HOLDS_LUA } from './lua/expire';
  *   - admits `admitPerSec` users per event in join order and issues passes
  *   - broadcasts one "admitted" number per event to every browser
  *   - releases seat holds that have expired and tells every browser
+ *   - broadcasts one Mission Control reading per event per second
  *
  * Only one replica runs, so there is never a second process handing out passes.
  */
@@ -23,7 +25,15 @@ let running = true;
 async function loadActiveEvents() {
   return prisma.event.findMany({
     where: { status: { in: [EventStatus.LIVE, EventStatus.PAUSED] } },
-    select: { id: true, status: true, admitPerSec: true, maxSeatsPerUser: true },
+    select: {
+      id: true,
+      status: true,
+      admitPerSec: true,
+      maxSeatsPerUser: true,
+      // The seat count never changes during a sale, so it comes along with the
+      // event rather than being counted again every second.
+      _count: { select: { seats: true } },
+    },
   });
 }
 
@@ -83,12 +93,19 @@ async function releaseExpiredHolds(eventId: string) {
 }
 
 async function tick() {
+  nextTick();
+  await prunePods(redis);
+
   const events = await loadActiveEvents();
   if (events.length === 0) return;
 
   for (const event of events) {
     const { admitted, joined, admittedNow } = await admit(event);
     await releaseExpiredHolds(event.id);
+
+    // Mission Control's reading for this second.
+    const stats = await buildStats(redis, prisma, event, event._count.seats);
+    await redis.publish(BROADCAST_CHANNEL, JSON.stringify(stats));
 
     // One message per event per second, not one per waiting user. Each browser
     // knows its own join number, so `admitted` is all it needs to work out its

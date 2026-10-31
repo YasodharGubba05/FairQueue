@@ -15,6 +15,7 @@ import { seatsRouter } from './routes/seats';
 import { checkoutRouter } from './routes/checkout';
 import { queueRouter } from './routes/queue';
 import { holdsRouter } from './routes/holds';
+import { statsRouter } from './routes/stats';
 import { startBroadcastBridge } from './broadcast';
 import { stopSeatUpdates } from './seatUpdates';
 
@@ -30,6 +31,7 @@ app.use(eventsRouter);
 app.use(queueRouter);
 app.use(seatsRouter);
 app.use(holdsRouter);
+app.use(statsRouter);
 app.use(checkoutRouter);
 
 /**
@@ -65,8 +67,8 @@ io.on('connection', (socket) => {
   });
 });
 
-// Heartbeat with a 10 second expiry. Mission Control counts these keys to show
-// how many api pods are alive; a dead pod's key just disappears on its own.
+// Every pod says it is alive twice inside the heartbeat window, so one missed
+// beat never makes a healthy pod vanish from the dashboard.
 let heartbeat: NodeJS.Timeout | null = null;
 
 async function setupModeConstraints() {
@@ -89,11 +91,11 @@ async function setupModeConstraints() {
 if (process.env.NODE_ENV !== 'test') {
   void setupModeConstraints();
 
-  heartbeat = setInterval(() => {
-    redis
-      .set(keys.pod(env.POD_NAME), Date.now().toString(), 'EX', TTL.POD_HEARTBEAT_SECONDS)
-      .catch(() => {});
-  }, 5000);
+  const beat = () => {
+    redis.zadd(keys.pods, Date.now(), env.POD_NAME).catch(() => {});
+  };
+  beat();
+  heartbeat = setInterval(beat, (TTL.POD_HEARTBEAT_SECONDS / 2) * 1000);
 
   server.listen(env.API_PORT, () => {
     console.log(`[api] mode=${env.MODE} pod=${env.POD_NAME} listening on :${env.API_PORT}`);
@@ -104,7 +106,9 @@ async function shutdown(signal: string) {
   console.log(`[api] ${signal} received, shutting down`);
   if (heartbeat) clearInterval(heartbeat);
   stopSeatUpdates();
-  await redis.del(keys.pod(env.POD_NAME)).catch(() => {});
+  // Leave the dashboard immediately on a clean shutdown rather than waiting to
+  // time out.
+  await redis.zrem(keys.pods, env.POD_NAME).catch(() => {});
   server.close();
   await Promise.allSettled([
     prisma.$disconnect(),

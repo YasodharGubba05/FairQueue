@@ -27,9 +27,15 @@ export const keys = {
   // Rate limit counters.
   rateUser: (userId: string, bucket: string) => `rate:user:${userId}:${bucket}`,
   rateIp: (ip: string, bucket: string) => `rate:ip:${ip}:${bucket}`,
-  // Pod heartbeat, 10s expiry. Mission Control counts these to show live pods.
-  pod: (podName: string) => `pods:api:${podName}`,
-  podPattern: 'pods:api:*',
+  // Live api pods: podName scored by the ms it last checked in. Mission Control
+  // counts the ones inside the heartbeat window.
+  //
+  // One key per pod with a TTL would read more naturally, but counting those
+  // means matching a key pattern, and Redis walks the whole keyspace to do it —
+  // hundreds of thousands of keys during a sale, four times a second, to count
+  // about three pods. A sorted set answers the same question in a log-time
+  // range count, and the worker drops pods that stop checking in.
+  pods: 'pods:api',
   // Mission Control counters.
   stat: (eventId: string, name: string) => `stats:${eventId}:${name}`,
 };

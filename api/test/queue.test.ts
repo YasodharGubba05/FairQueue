@@ -4,6 +4,11 @@ import { vi } from 'vitest';
 // vi.hoisted runs before the imports below, so src/env.ts reads the right mode.
 vi.hoisted(() => {
   process.env.MODE = 'fairqueue';
+  // This suite fires thousands of requests from one address on purpose, to
+  // prove the locks hold. The rate limiter would turn most of them away before
+  // they ever reached a lock, so it is off here and tested on its own in
+  // botprotection.test.ts.
+  process.env.RATE_LIMIT_ENABLED = 'false';
 });
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';

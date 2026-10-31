@@ -4,6 +4,11 @@ import { redis } from '../redis';
 import { keys } from '../keys';
 import { requireAuth } from '../middleware/auth';
 import { JOIN_QUEUE_LUA } from '../lua/queue';
+import { rateLimit } from '../middleware/rateLimit';
+
+// Joining is idempotent, so repeat calls are harmless — this is only here to
+// stop one account spinning on the endpoint.
+const joinLimit = rateLimit('join', { perUser: 10 });
 
 export const queueRouter = Router();
 
@@ -62,7 +67,7 @@ async function readState(
 
 // Take a place in line. Calling it again returns the same number, so a refresh
 // or a dropped connection never costs you your place.
-queueRouter.post('/api/events/:eventId/queue/join', requireAuth, async (req: Request, res: Response) => {
+queueRouter.post('/api/events/:eventId/queue/join', requireAuth, joinLimit, async (req: Request, res: Response) => {
   const { eventId } = req.params;
   const user = req.user!;
 

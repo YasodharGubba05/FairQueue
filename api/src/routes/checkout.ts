@@ -8,6 +8,12 @@ import { requireAuth } from '../middleware/auth';
 import { isNaive } from '../env';
 import { MARK_SOLD_LUA, VERIFY_HOLDS_LUA } from '../lua/hold';
 import { queueSeatUpdate } from '../seatUpdates';
+import { rateLimit } from '../middleware/rateLimit';
+import { bumpStat, STAT } from '../stats';
+
+// Buying is the one action a real buyer does once. Anything repeatedly
+// hammering it is not shopping.
+const checkoutLimit = rateLimit('checkout', { perUser: 10 });
 
 export const checkoutRouter = Router();
 
@@ -33,6 +39,7 @@ const REFUSALS: Record<string, { status: number; message: string }> = {
 checkoutRouter.post(
   '/api/events/:eventId/checkout',
   requireAuth,
+  checkoutLimit,
   async (req: Request, res: Response) => {
     const { eventId } = req.params;
     const user = req.user!;
@@ -67,7 +74,16 @@ checkoutRouter.post(
       return;
     }
 
-    // 1. Confirm the holds are still ours. A buyer can sit on the payment form
+    // 1. No pass, no sale. Holding seats already needs one, so this is belt and
+    //    braces — but it means a bot pointed straight at checkout is turned
+    //    away here by the same rule that governs the queue, and it is counted.
+    if ((await redis.exists(keys.pass(eventId, user.id))) === 0) {
+      bumpStat(eventId, STAT.NO_PASS);
+      res.status(403).json({ error: 'You need to go through the queue before buying' });
+      return;
+    }
+
+    // 2. Confirm the holds are still ours. A buyer can sit on the payment form
     //    for longer than the hold lasts, and those seats belong to whoever is
     //    looking at them now.
     const [outcome, detail] = (await redis.eval(
@@ -88,7 +104,7 @@ checkoutRouter.post(
       return;
     }
 
-    // 2. Mock payment, where a real integration would go.
+    // 3. Mock payment, where a real integration would go.
     if (payment && payment.cardNumber.replace(/\s/g, '').endsWith('0000')) {
       res.status(402).json({ error: 'Your card was declined — the seats are still yours' });
       return;
@@ -96,7 +112,7 @@ checkoutRouter.post(
 
     const total = seats.reduce((acc, s) => acc + s.price, 0);
 
-    // 3. One transaction: either the order and every ticket land, or none do.
+    // 4. One transaction: either the order and every ticket land, or none do.
     //    The UNIQUE(eventId, seatId) index is the last line of defense — even
     //    if every lock above somehow failed, the database physically cannot
     //    store the same seat twice, and this write fails instead.
@@ -111,7 +127,7 @@ checkoutRouter.post(
         return created;
       });
 
-      // 4. Only now are the seats really gone. Marking them sold drops the
+      // 5. Only now are the seats really gone. Marking them sold drops the
       //    holds too, so every open seat map greys them out.
       await redis.eval(
         MARK_SOLD_LUA,
@@ -123,6 +139,8 @@ checkoutRouter.post(
         ...seatIds,
       );
       queueSeatUpdate(eventId, seatIds, 'sold');
+      bumpStat(eventId, STAT.PURCHASES);
+      bumpStat(eventId, STAT.TICKETS, seatIds.length);
 
       res.status(201).json({ orderId: order.id, total, seatIds });
     } catch (err) {

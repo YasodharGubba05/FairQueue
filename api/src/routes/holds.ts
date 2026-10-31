@@ -6,7 +6,13 @@ import { keys, TTL } from '../keys';
 import { requireAuth } from '../middleware/auth';
 import { HOLD_SEATS_LUA, RELEASE_SEATS_LUA } from '../lua/hold';
 import { queueSeatUpdate } from '../seatUpdates';
+import { rateLimit } from '../middleware/rateLimit';
+import { bumpStat, STAT } from '../stats';
 import { isNaive } from '../env';
+
+// A buyer picking four seats makes a handful of calls; anything past this is
+// not a person choosing where to sit.
+const holdLimit = rateLimit('hold', { perUser: 30 });
 
 export const holdsRouter = Router();
 
@@ -31,6 +37,7 @@ const REFUSALS: Record<string, { status: number; message: (detail: string) => st
 holdsRouter.post(
   '/api/events/:eventId/holds',
   requireAuth,
+  holdLimit,
   async (req: Request, res: Response) => {
     const { eventId } = req.params;
     const user = req.user!;
@@ -79,6 +86,10 @@ holdsRouter.post(
     )) as [string, string];
 
     if (outcome !== 'OK') {
+      // No pass means somebody called this endpoint without going through the
+      // line. Worth counting on its own: it is the shape a bot makes.
+      if (outcome === 'NO_PASS') bumpStat(eventId, STAT.NO_PASS);
+
       const refusal = REFUSALS[outcome];
       res
         .status(refusal?.status ?? 409)
@@ -86,6 +97,7 @@ holdsRouter.post(
       return;
     }
 
+    bumpStat(eventId, STAT.HOLDS, unique.length);
     queueSeatUpdate(eventId, unique, 'held');
 
     res.status(201).json({
@@ -101,6 +113,7 @@ holdsRouter.post(
 holdsRouter.delete(
   '/api/events/:eventId/holds',
   requireAuth,
+  holdLimit,
   async (req: Request, res: Response) => {
     const { eventId } = req.params;
     const user = req.user!;
