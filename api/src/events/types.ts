@@ -42,6 +42,12 @@ export type FetchOptions = {
   city?: string;
   /** Upper bound on events returned, so one sync cannot run away. */
   limit?: number;
+  /**
+   * What kind of event to ask for — "Music", "Arts & Theatre", "Sports".
+   * Providers name these differently, so each adapter maps it to its own
+   * vocabulary rather than the caller having to know.
+   */
+  classification?: string;
 };
 
 /**

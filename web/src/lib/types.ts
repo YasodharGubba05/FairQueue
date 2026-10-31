@@ -1,3 +1,5 @@
+export type EventSourceKind = 'SEEDED' | 'TICKETMASTER' | 'VERIFIED';
+
 export type EventSummary = {
   id: string;
   name: string;
@@ -11,7 +13,24 @@ export type EventSummary = {
   availableSeats: number;
   minPrice: number;
   maxPrice: number;
+
+  // Where the real-world details came from. The seats, prices, payment and
+  // tickets below are simulated regardless of what this says.
+  source: EventSourceKind;
+  sourceLabel: string;
+  sourceName: string | null;
+  sourceUrl: string | null;
+  verified: boolean;
+  verifiedAt: string | null;
+  lastSyncedAt: string | null;
+  category: string | null;
+  city: string | null;
+  country: string | null;
 };
+
+export type EventFacets = { categories: string[]; cities: string[] };
+
+export type EventsResponse = { events: EventSummary[]; facets: EventFacets };
 
 export type QueueState = {
   joinNumber: number | null;

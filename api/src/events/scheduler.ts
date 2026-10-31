@@ -38,6 +38,7 @@ async function runIfWeWinTheLock() {
     const report = await syncEvents(prisma, {
       countryCode: env.EVENT_SYNC_COUNTRY,
       limit: env.EVENT_SYNC_LIMIT,
+    classification: env.EVENT_SYNC_CLASSIFICATION,
     });
 
     const { created, updated } = report.totals;

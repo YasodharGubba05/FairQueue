@@ -26,6 +26,9 @@ const schema = z.object({
   // Which country to pull live events for, and how many per sync.
   EVENT_SYNC_COUNTRY: z.string().default('GB'),
   EVENT_SYNC_LIMIT: z.coerce.number().default(24),
+  // What to pull. "Music" keeps the catalogue to concerts and live shows
+  // rather than whatever happens to be on in the country that week.
+  EVENT_SYNC_CLASSIFICATION: z.string().default('Music'),
   // How often to refresh live events. 0 turns the scheduled sync off entirely,
   // which is what the benchmarks run with so a provider call can never land in
   // the middle of a measured window.

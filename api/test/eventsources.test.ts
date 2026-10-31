@@ -2,6 +2,11 @@ import { vi } from 'vitest';
 
 vi.hoisted(() => {
   process.env.MODE = 'fairqueue';
+  // These suites must never reach the network, and must behave the same on a
+  // machine that has provider credentials in .env as on one that does not.
+  // Clearing the key here — before any import reads the environment — is what
+  // makes the result depend on the code rather than on who is running it.
+  delete process.env.TICKETMASTER_API_KEY;
 });
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -77,7 +82,9 @@ describe('Phase P7 — event source adapters', () => {
 
   describe('ticketmaster', () => {
     it('is not configured without a key, and fetches nothing', async () => {
-      const source = new TicketmasterSource(undefined);
+      // No argument at all: the adapter falls back to the environment, which
+      // this suite has deliberately cleared.
+      const source = new TicketmasterSource();
       expect(source.isConfigured()).toBe(false);
       expect(await source.fetchEvents()).toEqual([]);
     });

@@ -2,6 +2,11 @@ import { vi } from 'vitest';
 
 vi.hoisted(() => {
   process.env.MODE = 'fairqueue';
+  // These suites must never reach the network, and must behave the same on a
+  // machine that has provider credentials in .env as on one that does not.
+  // Clearing the key here — before any import reads the environment — is what
+  // makes the result depend on the code rather than on who is running it.
+  delete process.env.TICKETMASTER_API_KEY;
 });
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';

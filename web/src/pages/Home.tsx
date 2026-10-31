@@ -1,29 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Label, StatusLabel } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EventFilters, EMPTY_FILTERS, type Filters } from '@/components/events/EventFilters';
+import { ProvenanceLabel, SimulatedInventoryNote } from '@/components/events/Provenance';
 import { api } from '@/lib/api';
-import type { EventSummary } from '@/lib/types';
+import type { EventFacets, EventSummary, EventsResponse } from '@/lib/types';
 import { formatDate, formatPrice } from '@/lib/utils';
 
-/**
- * The event list, built as full-height panels rather than a grid of cards.
- * There is no artwork: in this system an event is its name, set large, and the
- * three facts you need to decide — where, when, how much.
- */
+const STATUS: Record<
+  EventSummary['status'],
+  { label: string; tone: 'live' | 'warning' | 'danger' | 'muted' }
+> = {
+  LIVE: { label: 'On sale now', tone: 'live' },
+  PAUSED: { label: 'Paused', tone: 'warning' },
+  UPCOMING: { label: 'Opening soon', tone: 'muted' },
+  SOLD_OUT: { label: 'Sold out', tone: 'danger' },
+};
+
+/** The hero is the sale you can act on, not whichever is soonest. */
+const PRIORITY: Record<EventSummary['status'], number> = {
+  LIVE: 0,
+  PAUSED: 1,
+  UPCOMING: 2,
+  SOLD_OUT: 3,
+};
+
 export default function Home() {
   const [events, setEvents] = useState<EventSummary[] | null>(null);
+  const [facets, setFacets] = useState<EventFacets>({ categories: [], cities: [] });
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [failed, setFailed] = useState(false);
 
+  // Filtering happens on the server so it works the same with three events or
+  // three hundred. The search box is debounced so typing is not a request per
+  // keystroke.
   useEffect(() => {
-    api
-      .get<{ events: EventSummary[] }>('/api/events')
-      .then((res) => setEvents(res.events))
-      .catch(() => setFailed(true));
-  }, []);
+    const handle = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (filters.q.trim()) params.set('q', filters.q.trim());
+      if (filters.category) params.set('category', filters.category);
+      if (filters.city) params.set('city', filters.city);
+      const query = params.toString();
+
+      api
+        .get<EventsResponse>(`/api/events${query ? `?${query}` : ''}`)
+        .then((res) => {
+          setEvents(res.events);
+          setFacets(res.facets);
+          setFailed(false);
+        })
+        .catch(() => setFailed(true));
+    }, filters.q ? 220 : 0);
+
+    return () => clearTimeout(handle);
+  }, [filters]);
+
+  const ordered = useMemo(
+    () => (events ? [...events].sort((a, b) => PRIORITY[a.status] - PRIORITY[b.status]) : null),
+    [events],
+  );
+
+  const filtering = Boolean(filters.q || filters.category || filters.city);
 
   if (failed) {
     return (
@@ -42,7 +83,7 @@ export default function Home() {
     );
   }
 
-  if (events === null) {
+  if (ordered === null) {
     return (
       <div className="mx-auto flex min-h-[70svh] max-w-page flex-col justify-center gap-8 px-gutter lg:px-gutter-lg">
         <Skeleton className="h-3 w-28" />
@@ -52,49 +93,55 @@ export default function Home() {
     );
   }
 
-  if (events.length === 0) {
-    return (
-      <div className="mx-auto max-w-page px-gutter lg:px-gutter-lg">
-        <EmptyState title="No events yet" description="Create one from the admin page." />
-      </div>
-    );
-  }
-
-  // The hero is the sale you can actually act on. Ordering by date would put a
-  // sold-out show at the top, which is the least useful thing to lead with.
-  const PRIORITY: Record<EventSummary['status'], number> = {
-    LIVE: 0,
-    PAUSED: 1,
-    UPCOMING: 2,
-    SOLD_OUT: 3,
-  };
-  const ordered = [...events].sort((a, b) => PRIORITY[a.status] - PRIORITY[b.status]);
-  const [headline, ...rest] = ordered;
+  // While filtering, the hero would hide a result behind a full-height panel,
+  // so the list stands on its own instead.
+  const headline = filtering ? null : ordered[0];
+  const rest = filtering ? ordered : ordered.slice(1);
 
   return (
     <div>
-      <Hero event={headline} />
+      {headline ? <Hero event={headline} /> : null}
 
-      {rest.length > 0 ? (
-        <section className="mx-auto max-w-page px-gutter pb-24 lg:px-gutter-lg">
-          <Label className="block border-t pt-8">Also on sale</Label>
-          <ul>
-            {rest.map((event, i) => (
-              <EventRow key={event.id} event={event} index={i} />
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <section className="mx-auto max-w-page px-gutter pb-28 lg:px-gutter-lg">
+        <EventFilters
+          facets={facets}
+          filters={filters}
+          onChange={setFilters}
+          resultCount={ordered.length}
+        />
+
+        {rest.length === 0 ? (
+          <EmptyState
+            title={filtering ? 'Nothing matches' : 'No other events'}
+            description={
+              filtering
+                ? 'Try a different search, or clear the filters.'
+                : 'Everything on sale is above.'
+            }
+            action={
+              filtering ? (
+                <Button variant="subtle" size="sm" onClick={() => setFilters(EMPTY_FILTERS)}>
+                  Clear filters
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <>
+            {!filtering ? <Label className="mt-12 block">Also on sale</Label> : null}
+            <ul className={filtering ? 'mt-10' : ''}>
+              {rest.map((event, i) => (
+                <EventRow key={event.id} event={event} index={i} />
+              ))}
+            </ul>
+          </>
+        )}
+
+        <SimulatedInventoryNote verbose className="mt-12 border-t pt-8" />
+      </section>
     </div>
   );
 }
-
-const STATUS: Record<EventSummary['status'], { label: string; tone: 'live' | 'warning' | 'danger' | 'muted' }> = {
-  LIVE: { label: 'On sale now', tone: 'live' },
-  PAUSED: { label: 'Paused', tone: 'warning' },
-  UPCOMING: { label: 'Opening soon', tone: 'muted' },
-  SOLD_OUT: { label: 'Sold out', tone: 'danger' },
-};
 
 function Hero({ event }: { event: EventSummary }) {
   const status = STATUS[event.status];
@@ -108,16 +155,20 @@ function Hero({ event }: { event: EventSummary }) {
         transition={{ duration: 0.68, ease: [0.22, 0.61, 0.36, 1] }}
         className="flex flex-col items-start gap-8"
       >
-        <StatusLabel tone={status.tone} pulse={event.status === 'LIVE'}>
-          {status.label}
-        </StatusLabel>
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <StatusLabel tone={status.tone} pulse={event.status === 'LIVE'}>
+            {status.label}
+          </StatusLabel>
+          <ProvenanceLabel event={event} />
+        </div>
 
         <h1 className="max-w-5xl font-display text-display-md sm:text-display-lg lg:text-display-xl">
           {event.name}
         </h1>
 
         <p className="text-base text-muted-foreground">
-          {event.venue} · {formatDate(event.startsAt)}
+          {event.venue}
+          {event.city ? ` · ${event.city}` : ''} · {formatDate(event.startsAt)}
         </p>
 
         <div className="mt-2 flex flex-col gap-3 sm:flex-row">
@@ -137,10 +188,13 @@ function Hero({ event }: { event: EventSummary }) {
           )}
         </div>
 
-        <p data-numeral className="mt-4 text-sm text-faint">
-          {event.totalSeats.toLocaleString()} seats · {formatPrice(event.minPrice)} to{' '}
-          {formatPrice(event.maxPrice)}
-        </p>
+        <div className="flex flex-col gap-2">
+          <p data-numeral className="text-sm text-faint">
+            {event.totalSeats.toLocaleString()} seats · {formatPrice(event.minPrice)} to{' '}
+            {formatPrice(event.maxPrice)}
+          </p>
+          <SimulatedInventoryNote />
+        </div>
       </motion.div>
     </section>
   );
@@ -149,19 +203,22 @@ function Hero({ event }: { event: EventSummary }) {
 function EventRow({ event, index }: { event: EventSummary; index: number }) {
   const status = STATUS[event.status];
   const open = event.status === 'LIVE' || event.status === 'PAUSED';
-  const href = open ? `/events/${event.id}/queue` : null;
 
   const body = (
     <div className="grid grid-cols-1 items-baseline gap-y-3 py-10 md:grid-cols-12 md:gap-x-8">
-      <div className="md:col-span-6">
+      <div className="md:col-span-5">
         <h2 className="font-display text-2xl font-light tracking-tight sm:text-3xl">{event.name}</h2>
-        <p className="mt-2 text-sm text-muted">{event.venue}</p>
+        <p className="mt-2 text-sm text-muted">
+          {event.venue}
+          {event.city ? ` · ${event.city}` : ''}
+        </p>
+        <ProvenanceLabel event={event} className="mt-3" />
       </div>
       <p className="text-sm text-muted-foreground md:col-span-2">{formatDate(event.startsAt)}</p>
       <p data-numeral className="text-sm text-muted-foreground md:col-span-2">
         {formatPrice(event.minPrice)}–{formatPrice(event.maxPrice)}
       </p>
-      <div className="md:col-span-2 md:text-right">
+      <div className="md:col-span-3 md:text-right">
         <StatusLabel tone={status.tone} className="whitespace-nowrap">
           {status.label}
         </StatusLabel>
@@ -172,14 +229,13 @@ function EventRow({ event, index }: { event: EventSummary; index: number }) {
   return (
     <motion.li
       initial={{ opacity: 0 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true, margin: '-80px' }}
-      transition={{ duration: 0.42, delay: index * 0.05, ease: [0.22, 0.61, 0.36, 1] }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.42, delay: Math.min(index, 6) * 0.04, ease: [0.22, 0.61, 0.36, 1] }}
       className="border-b"
     >
-      {href ? (
+      {open ? (
         <Link
-          to={href}
+          to={`/events/${event.id}/queue`}
           className="block rounded-sm transition-opacity duration-[var(--dur-fast)] hover:opacity-70"
         >
           {body}

@@ -121,3 +121,20 @@ export function venueForCapacity(capacity = DEFAULT_CAPACITY): SectionSpec[] {
 export function capacityOf(specs: SectionSpec[]): number {
   return specs.reduce((total, spec) => total + spec.rows * spec.seatsPerRow, 0);
 }
+
+/**
+ * A plausible room size for an event whose real capacity we do not know.
+ *
+ * Derived from the event's own id, so it is stable: the same event always gets
+ * the same room, and a re-sync never resizes a venue somebody is mid-purchase
+ * in. This is not a claim about the real venue — the inventory is simulated,
+ * and this only stops every synced event looking identical.
+ */
+export function simulatedCapacityFor(externalId: string): number {
+  let hash = 0;
+  for (let i = 0; i < externalId.length; i++) {
+    hash = (hash * 31 + externalId.charCodeAt(i)) >>> 0;
+  }
+  const SIZES = [420, 650, 900, 1_200, 1_600, 2_200, 3_000];
+  return SIZES[hash % SIZES.length];
+}

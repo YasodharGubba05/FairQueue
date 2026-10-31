@@ -56,6 +56,8 @@ export class TicketmasterSource implements EventSource {
     });
     if (options.countryCode) params.set('countryCode', options.countryCode);
     if (options.city) params.set('city', options.city);
+    // Their own segment vocabulary: "Music", "Arts & Theatre", "Sports".
+    if (options.classification) params.set('classificationName', options.classification);
 
     // A slow provider must never hold up a sync tick.
     const controller = new AbortController();

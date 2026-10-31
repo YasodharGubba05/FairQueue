@@ -1,7 +1,7 @@
 import { EventSourceKind, EventStatus, type PrismaClient } from '@prisma/client';
 import { collectEvents } from './registry';
 import type { FetchOptions, SourcedEvent } from './types';
-import { buildSeats, capacityOf, DEFAULT_CAPACITY, venueForCapacity } from './venue';
+import { buildSeats, capacityOf, simulatedCapacityFor, venueForCapacity } from './venue';
 
 /**
  * Turning a provider's event into something FairQueue can run a sale on.
@@ -67,7 +67,11 @@ export async function upsertSourcedEvent(
     return { action: 'updated', seatsCreated: 0, eventId: existing.id };
   }
 
-  const specs = venueForCapacity(event.capacity ?? DEFAULT_CAPACITY);
+  // Providers almost never publish a capacity. The venue we put on sale is
+  // simulated regardless, so rather than giving every event an identical room,
+  // pick a plausible size deterministically from the event's own id — the same
+  // event always gets the same room, and a re-sync never changes it.
+  const specs = venueForCapacity(event.capacity ?? simulatedCapacityFor(event.externalId));
 
   const created = await prisma.event.create({
     data: {
