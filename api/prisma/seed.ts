@@ -1,60 +1,10 @@
 import { PrismaClient, EventStatus, Role } from '@prisma/client';
 import { hashPassword } from '../src/password';
+// The venue generator is shared with the live-event sync, so a seeded room and
+// a synced one are laid out by exactly the same code.
+import { buildSeats, type SectionSpec } from '../src/events/venue';
 
 const prisma = new PrismaClient();
-
-/** A block of seats: `rows` rows of `seatsPerRow` seats, all at one price. */
-type SectionSpec = {
-  section: string;
-  rows: number;
-  seatsPerRow: number;
-  /** Price in cents. */
-  price: number;
-  /** Top-left corner of the block on the SVG seat map. */
-  originX: number;
-  originY: number;
-};
-
-const SEAT_GAP = 12;
-const ROW_GAP = 14;
-
-/** A, B, ... Z, AA, AB, ... so a section can have more than 26 rows. */
-function rowLabel(index: number): string {
-  let label = '';
-  let n = index;
-  do {
-    label = String.fromCharCode(65 + (n % 26)) + label;
-    n = Math.floor(n / 26) - 1;
-  } while (n >= 0);
-  return label;
-}
-
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
-
-function buildSeats(eventId: string, specs: SectionSpec[]) {
-  const seats = [];
-  for (const spec of specs) {
-    for (let r = 0; r < spec.rows; r++) {
-      const row = rowLabel(r);
-      for (let s = 0; s < spec.seatsPerRow; s++) {
-        const number = s + 1;
-        seats.push({
-          id: `s_${slug(eventId)}_${slug(spec.section)}_${row}${number}`,
-          eventId,
-          section: spec.section,
-          row,
-          number,
-          price: spec.price,
-          x: spec.originX + s * SEAT_GAP,
-          y: spec.originY + r * ROW_GAP,
-        });
-      }
-    }
-  }
-  return seats;
-}
 
 /**
  * The 2,000 seat headline venue: stage at the top, floor in front of it,

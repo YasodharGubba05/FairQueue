@@ -26,6 +26,10 @@ const schema = z.object({
   // Which country to pull live events for, and how many per sync.
   EVENT_SYNC_COUNTRY: z.string().default('GB'),
   EVENT_SYNC_LIMIT: z.coerce.number().default(24),
+  // How often to refresh live events. 0 turns the scheduled sync off entirely,
+  // which is what the benchmarks run with so a provider call can never land in
+  // the middle of a measured window.
+  EVENT_SYNC_INTERVAL_MINUTES: z.coerce.number().default(360),
   // Off only for the suites that test the locking guarantees, where thousands
   // of requests arrive from one address on purpose and the limiter is not what
   // is under test. Never off in a running deployment.

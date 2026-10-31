@@ -12,7 +12,7 @@ SHELL := /bin/bash
 PG := /opt/homebrew/opt/postgresql@17/bin
 
 .PHONY: install services-up services-down db-create migrate seed db-reset \
-        dev-api dev-worker dev-web typecheck test compose-up compose-down \
+        dev-api dev-worker dev-web sync-events typecheck test compose-up compose-down \
         cluster images import-images deploy redeploy-seed up status wait-metrics \
         watch-hpa logs-api logs-worker mode-naive mode-fairqueue \
         bench-limits prod-limits scale-test bench \
@@ -66,6 +66,13 @@ compose-up:
 
 compose-down:
 	docker compose down
+
+## --- live events ---
+
+# Fetch real events now. Does nothing without credentials, which is the point:
+# FairQueue has to run on its seeded catalogue alone.
+sync-events:
+	cd api && set -a && . ../.env && set +a && npm run sync-events
 
 ## --- checks ---
 

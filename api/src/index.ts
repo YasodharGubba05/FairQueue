@@ -19,6 +19,7 @@ import { statsRouter } from './routes/stats';
 import { adminRouter } from './routes/admin';
 import { startBroadcastBridge } from './broadcast';
 import { stopSeatUpdates } from './seatUpdates';
+import { startEventSync, stopEventSync } from './events/scheduler';
 
 export const app = express();
 app.set('trust proxy', true);
@@ -99,6 +100,9 @@ if (process.env.NODE_ENV !== 'test') {
   beat();
   heartbeat = setInterval(beat, (TTL.POD_HEARTBEAT_SECONDS / 2) * 1000);
 
+  // Refresh live events on a schedule. A no-op when no provider is configured.
+  startEventSync();
+
   server.listen(env.API_PORT, () => {
     console.log(`[api] mode=${env.MODE} pod=${env.POD_NAME} listening on :${env.API_PORT}`);
   });
@@ -108,6 +112,7 @@ async function shutdown(signal: string) {
   console.log(`[api] ${signal} received, shutting down`);
   if (heartbeat) clearInterval(heartbeat);
   stopSeatUpdates();
+  stopEventSync();
   // Leave the dashboard immediately on a clean shutdown rather than waiting to
   // time out.
   await redis.zrem(keys.pods, env.POD_NAME).catch(() => {});
