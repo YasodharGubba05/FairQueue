@@ -11,7 +11,6 @@ import { Spinner } from '@/components/ui/spinner';
 import { HoldCountdown } from '@/components/seatmap/HoldCountdown';
 import { api, ApiError } from '@/lib/api';
 import type { EventSummary, HoldState, Seat } from '@/lib/types';
-import { useAuthStore } from '@/store/auth';
 import { formatPrice } from '@/lib/utils';
 
 /** What went wrong, and what the buyer can actually do about it. */
@@ -42,7 +41,6 @@ function failureFor(err: ApiError): Failure {
 export default function Checkout() {
   const { eventId = '' } = useParams();
   const navigate = useNavigate();
-  const token = useAuthStore((s) => s.token);
 
   const [event, setEvent] = useState<EventSummary | null>(null);
   const [seats, setSeats] = useState<Seat[] | null>(null);
@@ -54,11 +52,7 @@ export default function Checkout() {
   const [name, setName] = useState('Test Buyer');
 
   useEffect(() => {
-    if (!token) navigate(`/login?next=/events/${eventId}/checkout`, { replace: true });
-  }, [token, eventId, navigate]);
-
-  useEffect(() => {
-    if (!token || !eventId) return;
+    if (!eventId) return;
     let cancelled = false;
 
     async function load() {
@@ -88,7 +82,7 @@ export default function Checkout() {
     return () => {
       cancelled = true;
     };
-  }, [token, eventId]);
+  }, [eventId]);
 
   const onExpired = useCallback(() => {
     setSeats([]);

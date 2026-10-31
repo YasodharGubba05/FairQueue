@@ -9,7 +9,6 @@ import { PositionNumber } from '@/components/queue/PositionNumber';
 import { api, ApiError } from '@/lib/api';
 import { getSocket, subscribeToEvent } from '@/lib/socket';
 import type { EventSummary, QueueState, QueueTick } from '@/lib/types';
-import { useAuthStore } from '@/store/auth';
 import { useQueueStore } from '@/store/queue';
 
 /** "About 2 minutes" — a calm estimate, never a false precision. */
@@ -23,7 +22,6 @@ function formatWait(seconds: number) {
 export default function WaitingRoom() {
   const { eventId = '' } = useParams();
   const navigate = useNavigate();
-  const token = useAuthStore((s) => s.token);
   const setNumber = useQueueStore((s) => s.setNumber);
   const savedNumber = useQueueStore((s) => s.numbers[eventId]);
 
@@ -36,14 +34,10 @@ export default function WaitingRoom() {
   // against. A ref, so a re-render never moves the goalposts.
   const startAhead = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (!token) navigate(`/login?next=/events/${eventId}/queue`, { replace: true });
-  }, [token, eventId, navigate]);
-
   // Joining is idempotent, so this is also what a refresh does: it hands back
   // the number you already had.
   useEffect(() => {
-    if (!token || !eventId) return;
+    if (!eventId) return;
     let cancelled = false;
 
     async function start() {
@@ -70,7 +64,7 @@ export default function WaitingRoom() {
     return () => {
       cancelled = true;
     };
-  }, [token, eventId, setNumber]);
+  }, [eventId, setNumber]);
 
   // One broadcast a second, for everyone watching this event.
   useEffect(() => {
@@ -120,10 +114,10 @@ export default function WaitingRoom() {
 
   // A slow safety net in case the socket is down or a broadcast was missed.
   useEffect(() => {
-    if (!token || !eventId) return;
+    if (!eventId) return;
     const id = setInterval(() => void refresh(), 5000);
     return () => clearInterval(id);
-  }, [token, eventId, refresh]);
+  }, [eventId, refresh]);
 
   // At the front but no pass yet: the worker issues it a moment after the
   // watermark passes your number, so ask.

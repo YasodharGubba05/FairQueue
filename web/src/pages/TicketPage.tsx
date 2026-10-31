@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
 import { Button } from '@/components/ui/button';
@@ -9,28 +9,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { SuccessRule } from '@/components/ui/confetti';
 import { api } from '@/lib/api';
 import type { OrderDetail } from '@/lib/types';
-import { useAuthStore } from '@/store/auth';
 import { formatDate, formatPrice, formatTime } from '@/lib/utils';
 
 export default function TicketPage() {
   const { orderId = '' } = useParams();
-  const navigate = useNavigate();
-  const token = useAuthStore((s) => s.token);
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
-    if (!token) navigate(`/login?next=/orders/${orderId}`, { replace: true });
-  }, [token, orderId, navigate]);
-
-  useEffect(() => {
-    if (!token || !orderId) return;
+    if (!orderId) return;
     api
       .get<{ order: OrderDetail }>(`/api/orders/${orderId}`)
       .then((res) => setOrder(res.order))
       .catch(() => setMissing(true));
-  }, [token, orderId]);
+  }, [orderId]);
 
   if (missing) {
     return (

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
+import { logout } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -24,7 +25,6 @@ export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const user = useAuthStore((s) => s.user);
-  const clear = useAuthStore((s) => s.clear);
   const location = useLocation();
 
   useEffect(() => setMobileOpen(false), [location.pathname]);
@@ -77,7 +77,7 @@ export function Navbar() {
               <span className="hidden max-w-[16ch] truncate text-sm text-muted sm:inline">
                 {user.email}
               </span>
-              <Button variant="ghost" size="sm" onClick={clear}>
+              <Button variant="ghost" size="sm" onClick={() => void logout()}>
                 Sign out
               </Button>
             </>

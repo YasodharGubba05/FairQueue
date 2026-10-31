@@ -10,13 +10,11 @@ import { SelectionTray } from '@/components/seatmap/SelectionTray';
 import { api, ApiError } from '@/lib/api';
 import { getSocket, subscribeToEvent } from '@/lib/socket';
 import type { EventSummary, HoldState, Seat, SeatStatus, SeatsUpdate } from '@/lib/types';
-import { useAuthStore } from '@/store/auth';
 import { toast } from '@/store/toast';
 
 export default function SeatMap() {
   const { eventId = '' } = useParams();
   const navigate = useNavigate();
-  const token = useAuthStore((s) => s.token);
 
   const [event, setEvent] = useState<EventSummary | null>(null);
   const [seats, setSeats] = useState<Seat[] | null>(null);
@@ -31,11 +29,7 @@ export default function SeatMap() {
   const inFlight = useRef(false);
 
   useEffect(() => {
-    if (!token) navigate(`/login?next=/events/${eventId}/seats`, { replace: true });
-  }, [token, eventId, navigate]);
-
-  useEffect(() => {
-    if (!token || !eventId) return;
+    if (!eventId) return;
     let cancelled = false;
 
     async function load() {
@@ -69,7 +63,7 @@ export default function SeatMap() {
     return () => {
       cancelled = true;
     };
-  }, [token, eventId, navigate]);
+  }, [eventId, navigate]);
 
   // Live seat changes, arriving in batches of up to four a second.
   useEffect(() => {
