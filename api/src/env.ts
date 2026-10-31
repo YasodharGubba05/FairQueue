@@ -19,6 +19,13 @@ const schema = z.object({
   // for benchmark runs, where every virtual user shares the load generator's
   // single address.
   RATE_LIMIT_IP_FACTOR: z.coerce.number().default(20),
+  // Live events. Optional by design: with no key the application runs exactly
+  // as before on its seeded catalogue, which is what keeps it demoable and
+  // benchmarkable on a machine with no credentials and no network.
+  TICKETMASTER_API_KEY: z.string().optional(),
+  // Which country to pull live events for, and how many per sync.
+  EVENT_SYNC_COUNTRY: z.string().default('GB'),
+  EVENT_SYNC_LIMIT: z.coerce.number().default(24),
   // Off only for the suites that test the locking guarantees, where thousands
   // of requests arrive from one address on purpose and the limiter is not what
   // is under test. Never off in a running deployment.

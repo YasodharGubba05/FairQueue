@@ -22,6 +22,21 @@ enum EventStatus {
   SOLD_OUT
 }
 
+/// Where an event's real-world details came from.
+///
+/// This is about the *event*, never the tickets. FairQueue's seat inventory,
+/// prices, payments and tickets are simulated for every event without
+/// exception — including the ones whose details are genuine.
+enum EventSourceKind {
+  /// Invented for demos and benchmarks. Not a real event.
+  SEEDED
+  /// Fetched live from the Ticketmaster Discovery API.
+  TICKETMASTER
+  /// Taken by hand from an official organiser announcement or schedule, with
+  /// the source URL recorded so anyone can check the claim.
+  VERIFIED
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -44,9 +59,35 @@ model Event {
   maxSeatsPerUser Int         @default(4)
   createdAt       DateTime    @default(now())
 
+  // --- where the real-world details came from ---
+  //
+  // Everything below describes the event, not the tickets. Seats, prices,
+  // payment and tickets are simulated for every event here, real or not.
+  source       EventSourceKind @default(SEEDED)
+  // The provider's own id. Null for seeded events, which have no provider.
+  externalId   String?
+  category     String?
+  city         String?
+  country      String?
+  // The page these details were taken from, so a reader can verify them
+  // rather than taking our word for it. Required for anything not SEEDED.
+  sourceUrl    String?
+  sourceName   String?
+  // When a human confirmed a VERIFIED entry against its source.
+  verifiedAt   DateTime?
+  // When a sync last refreshed this from its provider.
+  lastSyncedAt DateTime?
+
   seats   Seat[]
   orders  Order[]
   tickets Ticket[]
+
+  // One row per provider event. Postgres treats NULLs as distinct, so any
+  // number of seeded events coexist while a provider event can only land once
+  // and a re-sync updates it instead of duplicating it.
+  @@unique([source, externalId])
+  @@index([city])
+  @@index([category])
 }
 
 model Seat {

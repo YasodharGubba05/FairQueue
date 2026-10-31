@@ -1,0 +1,23 @@
+{
+  "$comment": [
+    "Events taken by hand from an official organiser announcement or schedule.",
+    "",
+    "This file exists because there is no free public API for Indian cricket or",
+    "most Indian live events, and scraping a ticketing site is both fragile and",
+    "against its terms. The honest alternative is a small curated list where",
+    "every entry carries the official page it was read from, so a reader can",
+    "check the claim rather than trusting us.",
+    "",
+    "Rules for an entry:",
+    "  - sourceUrl MUST be an official organiser or governing-body page",
+    "    (bcci.tv, iplt20.com, icc-cricket.com, a venue's own site). Never a",
+    "    ticket reseller, never a news aggregator, never a scraper.",
+    "  - verifiedAt is the date a human opened that page and confirmed the",
+    "    fixture. Re-check before a demo; schedules move.",
+    "  - Nothing here is ever invented. An entry with no source does not ship.",
+    "",
+    "Seats, prices, payment and tickets remain simulated for these events, in",
+    "exactly the same way as for every other event in FairQueue."
+  ],
+  "events": []
+}
