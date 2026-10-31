@@ -1,106 +1,193 @@
 import { Router, Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../db';
+import { redis } from '../redis';
+import { keys } from '../keys';
 import { requireAuth } from '../middleware/auth';
 import { isNaive } from '../env';
+import { MARK_SOLD_LUA, VERIFY_HOLDS_LUA } from '../lua/hold';
+import { queueSeatUpdate } from '../seatUpdates';
 
 export const checkoutRouter = Router();
 
 const checkoutSchema = z.object({
   seatIds: z.array(z.string().min(1)).min(1),
+  // Mock payment. Nothing here is stored or sent anywhere; a card number
+  // ending in 0000 is treated as declined so the UI has a failure to show.
+  payment: z
+    .object({
+      cardNumber: z.string().min(12).max(24),
+      name: z.string().min(1),
+    })
+    .optional(),
 });
 
-checkoutRouter.post('/api/events/:eventId/checkout', requireAuth, async (req: Request, res: Response) => {
-  const { eventId } = req.params;
-  const user = req.user!;
+/** Why a checkout was refused, in words a buyer can act on. */
+const REFUSALS: Record<string, { status: number; message: string }> = {
+  EXPIRED: { status: 409, message: 'Your hold ran out — those seats are back on sale' },
+  SOLD: { status: 409, message: 'One of those seats was just sold' },
+  HELD: { status: 409, message: 'You are not holding one of those seats' },
+};
 
-  const parsed = checkoutSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: 'seatIds must be a non-empty array of seat IDs' });
-    return;
-  }
+checkoutRouter.post(
+  '/api/events/:eventId/checkout',
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const { eventId } = req.params;
+    const user = req.user!;
 
-  const { seatIds } = parsed.data;
-
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-  });
-
-  if (!event) {
-    res.status(404).json({ error: 'Event not found' });
-    return;
-  }
-
-  if (seatIds.length > event.maxSeatsPerUser) {
-    res.status(400).json({ error: `Cannot purchase more than ${event.maxSeatsPerUser} seats` });
-    return;
-  }
-
-  const seats = await prisma.seat.findMany({
-    where: {
-      eventId,
-      id: { in: seatIds },
-    },
-  });
-
-  if (seats.length !== seatIds.length) {
-    res.status(400).json({ error: 'One or more invalid seats selected' });
-    return;
-  }
-
-  if (isNaive) {
-    // NAIVE MODE: Deliberately broken "before" implementation.
-    // No queue check, no admission pass, no distributed lock.
-    // 1. Read: check if seats are already taken in the database.
-    const existing = await prisma.ticket.findMany({
-      where: {
-        eventId,
-        seatId: { in: seatIds },
-      },
-    });
-
-    if (existing.length > 0) {
-      res.status(409).json({ error: 'One or more seats have already been sold' });
+    const parsed = checkoutSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'seatIds must be a non-empty array of seat IDs' });
       return;
     }
 
-    // 2. Artificial race gap (simulates payment processing delay where concurrency races).
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    const { seatIds, payment } = parsed.data;
 
-    // 3. Write: create order and insert tickets without atomic locks or transactions.
-    const total = seats.reduce((acc, s) => acc + s.price, 0);
-
-    const order = await prisma.order.create({
-      data: {
-        userId: user.id,
-        eventId,
-        total,
-      },
-    });
-
-    const tickets = [];
-    for (const seat of seats) {
-      const ticket = await prisma.ticket.create({
-        data: {
-          orderId: order.id,
-          eventId,
-          seatId: seat.id,
-        },
-      });
-      tickets.push(ticket);
+    const event = await prisma.event.findUnique({ where: { id: eventId } });
+    if (!event) {
+      res.status(404).json({ error: 'Event not found' });
+      return;
     }
 
-    res.status(201).json({
-      orderId: order.id,
-      total,
-      tickets,
-    });
+    if (seatIds.length > event.maxSeatsPerUser) {
+      res.status(400).json({ error: `Cannot purchase more than ${event.maxSeatsPerUser} seats` });
+      return;
+    }
+
+    const seats = await prisma.seat.findMany({ where: { eventId, id: { in: seatIds } } });
+    if (seats.length !== seatIds.length) {
+      res.status(400).json({ error: 'One or more invalid seats selected' });
+      return;
+    }
+
+    if (isNaive) {
+      await naiveCheckout(res, { eventId, userId: user.id, seatIds, seats });
+      return;
+    }
+
+    // 1. Confirm the holds are still ours. A buyer can sit on the payment form
+    //    for longer than the hold lasts, and those seats belong to whoever is
+    //    looking at them now.
+    const [outcome, detail] = (await redis.eval(
+      VERIFY_HOLDS_LUA,
+      1,
+      keys.sold(eventId),
+      eventId,
+      user.id,
+      String(seatIds.length),
+      ...seatIds,
+    )) as [string, string];
+
+    if (outcome !== 'OK') {
+      const refusal = REFUSALS[outcome];
+      res
+        .status(refusal?.status ?? 409)
+        .json({ error: refusal?.message ?? 'Those seats are no longer yours', seatId: detail });
+      return;
+    }
+
+    // 2. Mock payment, where a real integration would go.
+    if (payment && payment.cardNumber.replace(/\s/g, '').endsWith('0000')) {
+      res.status(402).json({ error: 'Your card was declined — the seats are still yours' });
+      return;
+    }
+
+    const total = seats.reduce((acc, s) => acc + s.price, 0);
+
+    // 3. One transaction: either the order and every ticket land, or none do.
+    //    The UNIQUE(eventId, seatId) index is the last line of defense — even
+    //    if every lock above somehow failed, the database physically cannot
+    //    store the same seat twice, and this write fails instead.
+    try {
+      const order = await prisma.$transaction(async (tx) => {
+        const created = await tx.order.create({
+          data: { userId: user.id, eventId, total },
+        });
+        await tx.ticket.createMany({
+          data: seats.map((seat) => ({ orderId: created.id, eventId, seatId: seat.id })),
+        });
+        return created;
+      });
+
+      // 4. Only now are the seats really gone. Marking them sold drops the
+      //    holds too, so every open seat map greys them out.
+      await redis.eval(
+        MARK_SOLD_LUA,
+        2,
+        keys.sold(eventId),
+        keys.holds(eventId),
+        eventId,
+        String(seatIds.length),
+        ...seatIds,
+      );
+      queueSeatUpdate(eventId, seatIds, 'sold');
+
+      res.status(201).json({ orderId: order.id, total, seatIds });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        // The unique index caught a double sell. The seat genuinely is gone, so
+        // record that and tell this buyer honestly.
+        await redis
+          .eval(
+            MARK_SOLD_LUA,
+            2,
+            keys.sold(eventId),
+            keys.holds(eventId),
+            eventId,
+            String(seatIds.length),
+            ...seatIds,
+          )
+          .catch(() => {});
+        queueSeatUpdate(eventId, seatIds, 'sold');
+        res.status(409).json({ error: 'One of those seats was just sold' });
+        return;
+      }
+      throw err;
+    }
+  },
+);
+
+/**
+ * The deliberately broken "before" build: read whether the seats are taken,
+ * pause, then write. Two buyers both read "free" and both write, which is
+ * exactly the double-sell the benchmarks measure.
+ */
+async function naiveCheckout(
+  res: Response,
+  args: {
+    eventId: string;
+    userId: string;
+    seatIds: string[];
+    seats: { id: string; price: number }[];
+  },
+) {
+  const { eventId, userId, seatIds, seats } = args;
+
+  const existing = await prisma.ticket.findMany({
+    where: { eventId, seatId: { in: seatIds } },
+  });
+  if (existing.length > 0) {
+    res.status(409).json({ error: 'One or more seats have already been sold' });
     return;
   }
 
-  // FairQueue mode checkout will be implemented in P3 with Lua hold validation & DB transaction.
-  res.status(501).json({ error: 'FairQueue mode checkout is implemented in P3' });
-});
+  // The race window a real read-then-write checkout has anyway, made visible.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  const total = seats.reduce((acc, s) => acc + s.price, 0);
+  const order = await prisma.order.create({ data: { userId, eventId, total } });
+
+  const tickets = [];
+  for (const seat of seats) {
+    tickets.push(
+      await prisma.ticket.create({ data: { orderId: order.id, eventId, seatId: seat.id } }),
+    );
+  }
+
+  res.status(201).json({ orderId: order.id, total, tickets });
+}
 
 checkoutRouter.get('/api/orders/:orderId', requireAuth, async (req: Request, res: Response) => {
   const { orderId } = req.params;
@@ -110,11 +197,7 @@ checkoutRouter.get('/api/orders/:orderId', requireAuth, async (req: Request, res
     where: { id: orderId },
     include: {
       event: true,
-      tickets: {
-        include: {
-          seat: true,
-        },
-      },
+      tickets: { include: { seat: true } },
     },
   });
 

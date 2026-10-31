@@ -26,6 +26,16 @@ const config: Config = {
           foreground: 'hsl(var(--accent-foreground))',
         },
         highlight: 'hsl(var(--highlight))',
+        tier: {
+          1: 'hsl(var(--tier-1))',
+          2: 'hsl(var(--tier-2))',
+          3: 'hsl(var(--tier-3))',
+          4: 'hsl(var(--tier-4))',
+        },
+        seat: {
+          held: 'hsl(var(--seat-held))',
+          sold: 'hsl(var(--seat-sold))',
+        },
         success: 'hsl(var(--success))',
         warning: 'hsl(var(--warning))',
         danger: 'hsl(var(--danger))',

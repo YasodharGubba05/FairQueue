@@ -22,6 +22,16 @@
   --accent-soft: 252 100% 65%;
   --highlight: 188 86% 53%;
 
+  /* Seat price tiers, most expensive first. Distinct in hue and in lightness,
+     so the map still reads if you cannot tell the hues apart. */
+  --tier-1: 330 85% 62%;
+  --tier-2: 268 85% 68%;
+  --tier-3: 205 85% 58%;
+  --tier-4: 165 70% 48%;
+  /* Seat states */
+  --seat-held: 38 90% 58%;
+  --seat-sold: 240 6% 28%;
+
   /* Status */
   --success: 152 72% 45%;
   --warning: 38 95% 56%;
@@ -55,6 +65,13 @@
   --accent-foreground: 0 0% 100%;
   --accent-soft: 252 92% 56%;
   --highlight: 188 80% 42%;
+
+  --tier-1: 330 78% 48%;
+  --tier-2: 268 72% 55%;
+  --tier-3: 205 82% 44%;
+  --tier-4: 165 65% 34%;
+  --seat-held: 32 92% 46%;
+  --seat-sold: 240 10% 78%;
 
   --success: 152 65% 36%;
   --warning: 32 92% 44%;

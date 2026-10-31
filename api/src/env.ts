@@ -10,8 +10,7 @@ const schema = z.object({
   REDIS_URL: z.string().min(1).default('redis://localhost:6379'),
   JWT_SECRET: z.string().min(1).default('dev-only-change-me'),
   // naive: the deliberately broken "before" build used for benchmarks.
-  // Note: Vite/Vitest sets process.env.MODE='test' during test execution.
-  MODE: z.enum(['naive', 'fairqueue', 'test']).default('fairqueue'),
+  MODE: z.enum(['naive', 'fairqueue']).default('fairqueue'),
   API_PORT: z.coerce.number().default(4000),
   // Kubernetes injects the pod name; Mission Control counts live pods from it.
   POD_NAME: z.string().default('api-local'),
@@ -26,4 +25,4 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
-export const isNaive = env.MODE === 'naive' || env.MODE === 'test';
+export const isNaive = env.MODE === 'naive';

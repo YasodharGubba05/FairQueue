@@ -36,3 +36,36 @@ export type QueueTick = {
   status: EventSummary['status'];
   at: number;
 };
+
+export type SeatStatus = 'available' | 'held' | 'sold';
+
+export type Seat = {
+  id: string;
+  section: string;
+  row: string;
+  number: number;
+  price: number;
+  x: number;
+  y: number;
+  status: SeatStatus;
+};
+
+/** A batch of seat changes, sent at most four times a second. */
+export type SeatsUpdate = {
+  type: 'seats';
+  eventId: string;
+  seats: { id: string; status: SeatStatus }[];
+};
+
+export type HoldState = { seatIds: string[]; expiresAt: number | null };
+
+export type OrderDetail = {
+  id: string;
+  total: number;
+  createdAt: string;
+  event: { id: string; name: string; venue: string; startsAt: string };
+  tickets: {
+    id: string;
+    seat: { id: string; section: string; row: string; number: number; price: number };
+  }[];
+};

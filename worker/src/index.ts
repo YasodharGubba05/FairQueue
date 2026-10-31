@@ -3,13 +3,14 @@ import Redis from 'ioredis';
 import { env } from './env';
 import { keys, BROADCAST_CHANNEL, TTL } from './keys';
 import { ADMIT_LUA } from './lua/admit';
+import { EXPIRE_HOLDS_LUA } from './lua/expire';
 
 /**
  * The worker is the one process that is allowed to move the line forward.
  * Every tick it:
  *   - admits `admitPerSec` users per event in join order and issues passes
  *   - broadcasts one "admitted" number per event to every browser
- *   - releases seat holds that have expired                            (P3)
+ *   - releases seat holds that have expired and tells every browser
  *
  * Only one replica runs, so there is never a second process handing out passes.
  */
@@ -50,12 +51,44 @@ async function admit(event: ActiveEvent) {
   return { admitted, joined, admittedNow };
 }
 
+/**
+ * Release holds whose five minutes are up. The limit keeps one tick bounded so
+ * a big backlog is cleared over several ticks rather than stalling Redis.
+ */
+const EXPIRE_LIMIT = 500;
+
+async function releaseExpiredHolds(eventId: string) {
+  const released = (await redis.eval(
+    EXPIRE_HOLDS_LUA,
+    1,
+    keys.holds(eventId),
+    eventId,
+    String(Date.now()),
+    String(EXPIRE_LIMIT),
+  )) as string[];
+
+  if (released.length === 0) return released;
+
+  // Those seats are on sale again, so every open seat map has to know.
+  await redis.publish(
+    BROADCAST_CHANNEL,
+    JSON.stringify({
+      type: 'seats',
+      eventId,
+      seats: released.map((id) => ({ id, status: 'available' })),
+    }),
+  );
+
+  return released;
+}
+
 async function tick() {
   const events = await loadActiveEvents();
   if (events.length === 0) return;
 
   for (const event of events) {
     const { admitted, joined, admittedNow } = await admit(event);
+    await releaseExpiredHolds(event.id);
 
     // One message per event per second, not one per waiting user. Each browser
     // knows its own join number, so `admitted` is all it needs to work out its

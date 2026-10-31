@@ -1,3 +1,11 @@
+import { vi } from 'vitest';
+
+// Vitest sets process.env.MODE to 'test', and this suite needs the fairqueue build.
+// vi.hoisted runs before the imports below, so src/env.ts reads the right mode.
+vi.hoisted(() => {
+  process.env.MODE = 'fairqueue';
+});
+
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import http from 'node:http';
 import { app } from '../src/index';

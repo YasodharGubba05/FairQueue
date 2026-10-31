@@ -130,15 +130,23 @@ export default function WaitingRoom() {
     return () => clearInterval(id);
   }, [token, eventId, refresh]);
 
-  // Reached the front: confirm the pass is really there, then go to the seats.
+  // Reached the front but no pass yet: ask the server, since the pass is
+  // issued by the worker a moment after the watermark passes your number.
   useEffect(() => {
-    if (!queue || queue.joinNumber === null) return;
-    if (queue.hasPass) {
-      const id = setTimeout(() => navigate(`/events/${eventId}/seats`), 1200);
-      return () => clearTimeout(id);
-    }
+    if (!queue || queue.joinNumber === null || queue.hasPass) return;
     if (queue.ahead === 0) void refresh();
-  }, [queue, eventId, navigate, refresh]);
+  }, [queue, refresh]);
+
+  // Admitted: show "You're in" for a beat, then go to the seats. This depends
+  // on the boolean alone, not the whole queue object — the object is replaced
+  // every second by the broadcast, and that would cancel and restart the timer
+  // forever without it ever firing.
+  const hasPass = queue?.hasPass ?? false;
+  useEffect(() => {
+    if (!hasPass) return;
+    const id = setTimeout(() => navigate(`/events/${eventId}/seats`), 1200);
+    return () => clearTimeout(id);
+  }, [hasPass, eventId, navigate]);
 
   if (error) {
     return (

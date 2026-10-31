@@ -14,7 +14,9 @@ import { eventsRouter } from './routes/events';
 import { seatsRouter } from './routes/seats';
 import { checkoutRouter } from './routes/checkout';
 import { queueRouter } from './routes/queue';
+import { holdsRouter } from './routes/holds';
 import { startBroadcastBridge } from './broadcast';
+import { stopSeatUpdates } from './seatUpdates';
 
 export const app = express();
 app.set('trust proxy', true);
@@ -27,7 +29,18 @@ app.use(authRouter);
 app.use(eventsRouter);
 app.use(queueRouter);
 app.use(seatsRouter);
+app.use(holdsRouter);
 app.use(checkoutRouter);
+
+/**
+ * Anything a route throws ends up here. Without this, Express answers a bare
+ * 500 and the reason is lost, which is exactly when you most want to see it.
+ */
+app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[api] unhandled error:', err.stack ?? err.message);
+  if (res.headersSent) return;
+  res.status(500).json({ error: 'Something went wrong on our side' });
+});
 
 export const server = http.createServer(app);
 export const io = new Server(server, { cors: { origin: '*' }, path: '/socket.io' });
@@ -90,6 +103,7 @@ if (process.env.NODE_ENV !== 'test') {
 async function shutdown(signal: string) {
   console.log(`[api] ${signal} received, shutting down`);
   if (heartbeat) clearInterval(heartbeat);
+  stopSeatUpdates();
   await redis.del(keys.pod(env.POD_NAME)).catch(() => {});
   server.close();
   await Promise.allSettled([

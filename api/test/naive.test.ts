@@ -1,3 +1,11 @@
+import { vi } from 'vitest';
+
+// Vitest sets process.env.MODE to 'test', and this suite needs the naive build.
+// vi.hoisted runs before the imports below, so src/env.ts reads the right mode.
+vi.hoisted(() => {
+  process.env.MODE = 'naive';
+});
+
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import http from 'node:http';
 import { app } from '../src/index';
@@ -36,6 +44,16 @@ describe('Phase P1 — Naive Mode & Core Endpoints', () => {
   });
 
   afterAll(async () => {
+    // This suite deliberately double-sells, which leaves rows that the UNIQUE
+    // index cannot coexist with. Clear them and put the backstop back, so the
+    // database is left in the state every other suite — and fairqueue mode on
+    // the next boot — expects to find.
+    await prisma.ticket.deleteMany();
+    await prisma.order.deleteMany();
+    await prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS "Ticket_eventId_seatId_key" ON "Ticket"("eventId","seatId")`,
+    );
+
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await prisma.$disconnect();
   });

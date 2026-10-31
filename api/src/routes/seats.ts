@@ -6,6 +6,26 @@ import { isNaive } from '../env';
 
 export const seatsRouter = Router();
 
+/**
+ * Which seats are gone, read from Redis rather than Postgres.
+ *
+ * Redis is the live picture during a sale and Postgres is the permanent record.
+ * If the sold set is missing — a fresh Redis, or a restart mid-sale — it is
+ * rebuilt once from the tickets table, which is the thing we never lose.
+ */
+async function readSoldSeatIds(eventId: string): Promise<Set<string>> {
+  const soldKey = keys.sold(eventId);
+  if ((await redis.exists(soldKey)) === 1) {
+    return new Set(await redis.smembers(soldKey));
+  }
+
+  const tickets = await prisma.ticket.findMany({ where: { eventId }, select: { seatId: true } });
+  if (tickets.length > 0) {
+    await redis.sadd(soldKey, ...tickets.map((t) => t.seatId));
+  }
+  return new Set(tickets.map((t) => t.seatId));
+}
+
 seatsRouter.get('/api/events/:eventId/seats', async (req: Request, res: Response) => {
   const { eventId } = req.params;
 
@@ -24,46 +44,32 @@ seatsRouter.get('/api/events/:eventId/seats', async (req: Request, res: Response
     orderBy: [{ section: 'asc' }, { row: 'asc' }, { number: 'asc' }],
   });
 
-  let soldSeatIds = new Set<string>();
-  let heldSeatIds = new Set<string>();
+  let soldSeatIds: Set<string>;
+  const heldSeatIds = new Set<string>();
 
   if (isNaive) {
-    // In naive mode, read sold seats directly from Postgres tickets.
+    // Naive mode has no Redis state at all: no queue, no holds, no locks.
     const tickets = await prisma.ticket.findMany({
       where: { eventId },
       select: { seatId: true },
     });
     soldSeatIds = new Set(tickets.map((t) => t.seatId));
   } else {
-    // In fairqueue mode, Redis sold set has immediate sold status.
-    const redisSold = await redis.smembers(keys.sold(eventId)).catch(() => []);
-    if (redisSold.length > 0) {
-      soldSeatIds = new Set(redisSold);
-    } else {
-      const tickets = await prisma.ticket.findMany({
-        where: { eventId },
-        select: { seatId: true },
-      });
-      soldSeatIds = new Set(tickets.map((t) => t.seatId));
-    }
+    soldSeatIds = await readSoldSeatIds(eventId);
 
-    // Active holds in Redis:
-    const holdKeys = await redis.keys(keys.hold(eventId, '*')).catch(() => []);
-    for (const k of holdKeys) {
-      const seatId = k.split(':').pop();
-      if (seatId && !soldSeatIds.has(seatId)) {
-        heldSeatIds.add(seatId);
-      }
+    // Live holds come straight off the index, scored by when they run out, so
+    // anything already expired is simply out of range. Reading them by key
+    // pattern instead would mean a full keyspace scan on every seat map load.
+    const held = await redis.zrangebyscore(keys.holds(eventId), Date.now(), '+inf');
+    for (const seatId of held) {
+      if (!soldSeatIds.has(seatId)) heldSeatIds.add(seatId);
     }
   }
 
   const result = seats.map((s) => {
     let status: 'available' | 'held' | 'sold' = 'available';
-    if (soldSeatIds.has(s.id)) {
-      status = 'sold';
-    } else if (heldSeatIds.has(s.id)) {
-      status = 'held';
-    }
+    if (soldSeatIds.has(s.id)) status = 'sold';
+    else if (heldSeatIds.has(s.id)) status = 'held';
 
     return {
       id: s.id,

@@ -6,6 +6,7 @@ export const keys = {
   admitted: (eventId: string) => `admitted:${eventId}`,
   pass: (eventId: string, userId: string) => `pass:${eventId}:${userId}`,
   hold: (eventId: string, seatId: string) => `hold:${eventId}:${seatId}`,
+  holds: (eventId: string) => `holds:${eventId}`,
   sold: (eventId: string) => `sold:${eventId}`,
   userSeats: (eventId: string, userId: string) => `userseats:${eventId}:${userId}`,
   stat: (eventId: string, name: string) => `stats:${eventId}:${name}`,
