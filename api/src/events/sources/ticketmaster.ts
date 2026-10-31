@@ -20,7 +20,10 @@ type TicketmasterEvent = {
   id?: string;
   name?: string;
   url?: string;
-  dates?: { start?: { dateTime?: string; localDate?: string } };
+  dates?: {
+    start?: { dateTime?: string; localDate?: string };
+    end?: { dateTime?: string };
+  };
   classifications?: { segment?: { name?: string }; genre?: { name?: string } }[];
   _embedded?: {
     venues?: {
@@ -104,6 +107,8 @@ function normalise(raw: TicketmasterEvent): Partial<SourcedEvent> {
     country: venue?.country?.countryCode ?? venue?.country?.name ?? '',
     category: classification?.genre?.name ?? classification?.segment?.name ?? 'Event',
     startsAt,
+    // Published only occasionally; the ingest falls back to a show length.
+    endsAt: raw.dates?.end?.dateTime ? new Date(raw.dates.end.dateTime) : undefined,
     // Their own page for the event: the thing that makes this checkable.
     sourceUrl: raw.url,
     sourceName: 'Ticketmaster',

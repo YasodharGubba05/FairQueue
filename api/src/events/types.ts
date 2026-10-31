@@ -23,6 +23,12 @@ export type SourcedEvent = {
   category: string;
   startsAt: Date;
   /**
+   * When the event finishes, if the provider publishes it. Most do not, and
+   * the ingest falls back to a default show length — this is what decides
+   * when an event stops being listed, so it always ends up set.
+   */
+  endsAt?: Date;
+  /**
    * The page these details came from. Required, not optional: an event that
    * claims to be real without somewhere to check it is just an assertion.
    */

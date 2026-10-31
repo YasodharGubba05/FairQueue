@@ -8,6 +8,7 @@ import { requireAuth } from '../middleware/auth';
 import { isNaive } from '../env';
 import { MARK_SOLD_LUA, VERIFY_HOLDS_LUA } from '../lua/hold';
 import { queueSeatUpdate } from '../seatUpdates';
+import { refusalFor } from '../events/lifecycle';
 import { rateLimit } from '../middleware/rateLimit';
 import { bumpStat, STAT } from '../stats';
 
@@ -66,6 +67,13 @@ checkoutRouter.post(
     const seats = await prisma.seat.findMany({ where: { eventId, id: { in: seatIds } } });
     if (seats.length !== seatIds.length) {
       res.status(400).json({ error: 'One or more invalid seats selected' });
+      return;
+    }
+
+    // Money must never change hands for an event that is over or called off.
+    const refusal = refusalFor(event);
+    if (refusal) {
+      res.status(refusal.status).json({ error: refusal.error });
       return;
     }
 

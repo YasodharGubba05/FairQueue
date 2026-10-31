@@ -8,6 +8,7 @@ import { HOLD_SEATS_LUA, RELEASE_SEATS_LUA } from '../lua/hold';
 import { queueSeatUpdate } from '../seatUpdates';
 import { rateLimit } from '../middleware/rateLimit';
 import { bumpStat, STAT } from '../stats';
+import { refusalFor } from '../events/lifecycle';
 import { isNaive } from '../env';
 
 // A buyer picking four seats makes a handful of calls; anything past this is
@@ -58,10 +59,16 @@ holdsRouter.post(
 
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      select: { id: true, maxSeatsPerUser: true },
+      select: { id: true, maxSeatsPerUser: true, status: true, endsAt: true },
     });
     if (!event) {
       res.status(404).json({ error: 'Event not found' });
+      return;
+    }
+
+    const refusal = refusalFor(event);
+    if (refusal) {
+      res.status(refusal.status).json({ error: refusal.error });
       return;
     }
 

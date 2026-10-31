@@ -5,8 +5,9 @@ export type EventSummary = {
   name: string;
   venue: string;
   startsAt: string;
+  endsAt: string;
   saleOpensAt: string;
-  status: 'UPCOMING' | 'LIVE' | 'PAUSED' | 'SOLD_OUT';
+  status: 'UPCOMING' | 'LIVE' | 'PAUSED' | 'SOLD_OUT' | 'COMPLETED' | 'CANCELLED';
   admitPerSec: number;
   maxSeatsPerUser: number;
   totalSeats: number;
@@ -29,6 +30,26 @@ export type EventSummary = {
 };
 
 export type EventFacets = { categories: string[]; cities: string[] };
+
+/** What an admin sees: everything, including what the public no longer can. */
+export type AdminEvent = {
+  id: string;
+  name: string;
+  venue: string;
+  startsAt: string;
+  endsAt: string;
+  status: EventSummary['status'];
+  city: string | null;
+  category: string | null;
+  source: EventSourceKind;
+  sourceLabel: string;
+  sourceName: string | null;
+  sourceUrl: string | null;
+  verified: boolean;
+  totalSeats: number;
+  ticketsSold: number;
+  publiclyVisible: boolean;
+};
 
 export type EventsResponse = { events: EventSummary[]; facets: EventFacets };
 

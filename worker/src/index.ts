@@ -6,6 +6,7 @@ import { keys, BROADCAST_CHANNEL, TTL } from './keys';
 import { ADMIT_LUA } from './lua/admit';
 import { EXPIRE_HOLDS_LUA } from './lua/expire';
 import { buildStats, nextTick, prunePods } from './stats';
+import { completeFinishedEvents } from './lifecycle';
 
 /**
  * The worker is the one process that is allowed to move the line forward.
@@ -14,6 +15,7 @@ import { buildStats, nextTick, prunePods } from './stats';
  *   - broadcasts one "admitted" number per event to every browser
  *   - releases seat holds that have expired and tells every browser
  *   - broadcasts one Mission Control reading per event per second
+ *   - retires events once they are over
  *
  * Only one replica runs, so there is never a second process handing out passes.
  */
@@ -113,6 +115,7 @@ async function releaseExpiredHolds(eventId: string) {
 async function tick() {
   nextTick();
   await prunePods(redis);
+  await completeFinishedEvents(prisma);
 
   const events = await loadActiveEvents();
   if (events.length === 0) return;

@@ -20,6 +20,12 @@ enum EventStatus {
   LIVE
   PAUSED
   SOLD_OUT
+  /// The event has happened. Terminal: it leaves every public listing, and
+  /// nothing can be bought for it again. Its orders and tickets stay exactly
+  /// where they are — someone who went to the show keeps their ticket.
+  COMPLETED
+  /// Called off. Terminal in the same way, but it never happened.
+  CANCELLED
 }
 
 /// Where an event's real-world details came from.
@@ -52,6 +58,9 @@ model Event {
   name            String
   venue           String
   startsAt        DateTime
+  // When the doors close. Visibility is derived from this rather than from
+  // startsAt, because an event that began an hour ago is still on.
+  endsAt          DateTime
   saleOpensAt     DateTime
   status          EventStatus @default(UPCOMING)
   // How many queued users the worker admits each second.
@@ -88,6 +97,8 @@ model Event {
   @@unique([source, externalId])
   @@index([city])
   @@index([category])
+  // Every public listing filters on these two together.
+  @@index([status, endsAt])
 }
 
 model Seat {

@@ -3,6 +3,7 @@ import { hashPassword } from '../src/password';
 // The venue generator is shared with the live-event sync, so a seeded room and
 // a synced one are laid out by exactly the same code.
 import { buildSeats, type SectionSpec } from '../src/events/venue';
+import { defaultEndsAt } from '../src/events/lifecycle';
 
 const prisma = new PrismaClient();
 
@@ -112,7 +113,11 @@ async function main() {
   ];
 
   for (const event of events) {
-    await prisma.event.create({ data: event.data });
+    // Seeded shows run for the default length. endsAt is what decides when an
+    // event drops out of the listings, so it is always set.
+    await prisma.event.create({
+      data: { ...event.data, endsAt: defaultEndsAt(event.data.startsAt) },
+    });
     const seats = buildSeats(event.data.id, event.venue);
     await prisma.seat.createMany({ data: seats });
     console.log(`[seed] ${event.data.name}: ${seats.length} seats`);

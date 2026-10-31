@@ -64,6 +64,9 @@ describe('Phase P2 — queue join and admission order', () => {
         name: 'Queue Test Event',
         venue: 'Test Arena',
         startsAt: new Date(Date.now() + 86_400_000),
+        // endsAt decides when an event drops out of the public listings, so
+        // every event needs one. Three hours after it starts.
+        endsAt: new Date(Date.now() + 86_400_000 + 3 * 60 * 60 * 1000),
         saleOpensAt: new Date(Date.now() - 1000),
         status: 'LIVE',
         admitPerSec: 10,

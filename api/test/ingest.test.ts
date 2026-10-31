@@ -34,9 +34,16 @@ function sourced(overrides: Partial<SourcedEvent> = {}): SourcedEvent {
 }
 
 describe('Phase P7 — ingesting provider events', () => {
+  /**
+   * Only this suite's own fixtures.
+   *
+   * This used to delete every non-seeded event, which meant running the tests
+   * wiped a developer's real synced catalogue out of their local database. A
+   * test must never destroy data it did not create.
+   */
   async function wipe() {
     const events = await prisma.event.findMany({
-      where: { source: { not: EventSourceKind.SEEDED } },
+      where: { externalId: { startsWith: 'test-provider-event-' } },
       select: { id: true },
     });
     const ids = events.map((e) => e.id);

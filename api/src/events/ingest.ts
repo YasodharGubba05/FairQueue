@@ -2,6 +2,7 @@ import { EventSourceKind, EventStatus, type PrismaClient } from '@prisma/client'
 import { collectEvents } from './registry';
 import type { FetchOptions, SourcedEvent } from './types';
 import { buildSeats, capacityOf, simulatedCapacityFor, venueForCapacity } from './venue';
+import { defaultEndsAt } from './lifecycle';
 
 /**
  * Turning a provider's event into something FairQueue can run a sale on.
@@ -53,6 +54,9 @@ export async function upsertSourcedEvent(
     name: event.name,
     venue: event.venue,
     startsAt: event.startsAt,
+    // Providers rarely publish an end time, so a default show length stands
+    // in. This is the field visibility is derived from, so it is never null.
+    endsAt: event.endsAt ?? defaultEndsAt(event.startsAt),
     category: event.category,
     city: event.city,
     country: event.country,

@@ -5,6 +5,7 @@ import { keys } from '../keys';
 import { requireAuth } from '../middleware/auth';
 import { JOIN_QUEUE_LUA } from '../lua/queue';
 import { rateLimit } from '../middleware/rateLimit';
+import { refusalFor } from '../events/lifecycle';
 
 // Joining is idempotent, so repeat calls are harmless — this is only here to
 // stop one account spinning on the endpoint.
@@ -28,7 +29,7 @@ type QueueState = {
 async function loadEvent(eventId: string) {
   return prisma.event.findUnique({
     where: { id: eventId },
-    select: { id: true, status: true, admitPerSec: true, maxSeatsPerUser: true },
+    select: { id: true, status: true, endsAt: true, admitPerSec: true, maxSeatsPerUser: true },
   });
 }
 
@@ -76,12 +77,11 @@ queueRouter.post('/api/events/:eventId/queue/join', requireAuth, joinLimit, asyn
     res.status(404).json({ error: 'Event not found' });
     return;
   }
-  if (event.status === 'UPCOMING') {
-    res.status(409).json({ error: 'The sale has not opened yet' });
-    return;
-  }
-  if (event.status === 'SOLD_OUT') {
-    res.status(409).json({ error: 'This event is sold out' });
+  // One rule for every booking path, so a cancelled or finished event cannot
+  // be queued for, held in, or bought from.
+  const refusal = refusalFor(event);
+  if (refusal) {
+    res.status(refusal.status).json({ error: refusal.error });
     return;
   }
 

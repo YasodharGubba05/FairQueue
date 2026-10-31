@@ -3,6 +3,7 @@ import { EventSourceKind, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { labelFor } from '../events/registry';
+import { publicEventFilter } from '../events/lifecycle';
 
 export const eventsRouter = Router();
 
@@ -12,6 +13,7 @@ function formatEvent(event: {
   name: string;
   venue: string;
   startsAt: Date;
+  endsAt: Date;
   saleOpensAt: Date;
   status: string;
   admitPerSec: number;
@@ -43,6 +45,7 @@ function formatEvent(event: {
     name: event.name,
     venue: event.venue,
     startsAt: event.startsAt,
+    endsAt: event.endsAt,
     saleOpensAt: event.saleOpensAt,
     status: event.status,
     admitPerSec: event.admitPerSec,
@@ -89,7 +92,11 @@ eventsRouter.get('/api/events', async (req: Request, res: Response) => {
   }
   const { q, category, city, source } = parsed.data;
 
+  // Completed and cancelled events leave every listing, search and filter.
+  // Enforced here rather than in the frontend, because a filter that only
+  // exists in React is not a rule.
   const where: Prisma.EventWhereInput = {
+    ...publicEventFilter(),
     ...(category ? { category: { equals: category, mode: 'insensitive' } } : {}),
     ...(city ? { city: { equals: city, mode: 'insensitive' } } : {}),
     ...(source ? { source } : {}),
@@ -113,15 +120,18 @@ eventsRouter.get('/api/events', async (req: Request, res: Response) => {
   // Facets come from the whole catalogue, not the filtered result, so the
   // filter controls do not shrink as you use them and strand you with no way
   // back except clearing everything.
+  // Facets come from the visible catalogue only, so a city that has nothing
+  // on any more does not sit in the filter row leading nowhere.
+  const visible = publicEventFilter();
   const [categories, cities] = await Promise.all([
     prisma.event.findMany({
-      where: { category: { not: null } },
+      where: { ...visible, category: { not: null } },
       distinct: ['category'],
       select: { category: true },
       orderBy: { category: 'asc' },
     }),
     prisma.event.findMany({
-      where: { city: { not: null } },
+      where: { ...visible, city: { not: null } },
       distinct: ['city'],
       select: { city: true },
       orderBy: { city: 'asc' },

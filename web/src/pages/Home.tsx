@@ -19,6 +19,10 @@ const STATUS: Record<
   PAUSED: { label: 'Paused', tone: 'warning' },
   UPCOMING: { label: 'Opening soon', tone: 'muted' },
   SOLD_OUT: { label: 'Sold out', tone: 'danger' },
+  // Never reached from a public listing, which filters both out. Present so
+  // the mapping is total and a status can never render as undefined.
+  COMPLETED: { label: 'Finished', tone: 'muted' },
+  CANCELLED: { label: 'Cancelled', tone: 'danger' },
 };
 
 /** The hero is the sale you can act on, not whichever is soonest. */
@@ -27,6 +31,8 @@ const PRIORITY: Record<EventSummary['status'], number> = {
   PAUSED: 1,
   UPCOMING: 2,
   SOLD_OUT: 3,
+  COMPLETED: 4,
+  CANCELLED: 5,
 };
 
 export default function Home() {
