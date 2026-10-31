@@ -203,7 +203,7 @@ export function SeatMapCanvas({
           both sides. No frame around it: the map sits on the page. */}
       <div
         ref={wrapRef}
-        className="relative mx-auto w-full max-w-[680px] overflow-hidden"
+        className="relative mx-auto w-full max-w-[680px] overflow-hidden rounded bg-surface shadow-lift"
         onMouseLeave={() => setTooltip(null)}
       >
         <svg

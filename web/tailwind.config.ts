@@ -16,6 +16,7 @@ const config: Config = {
         surface: {
           DEFAULT: 'hsl(var(--surface))',
           raised: 'hsl(var(--surface-raised))',
+          hover: 'hsl(var(--surface-hover))',
         },
         foreground: 'hsl(var(--foreground))',
         muted: {
@@ -71,10 +72,21 @@ const config: Config = {
         DEFAULT: 'var(--radius)',
         pill: 'var(--radius-pill)',
       },
-      // No shadow scale at all. Depth in this system comes from surface
-      // lightness, never from a drop shadow.
+      // Still no drop shadow under a card. `lift` is an inset hairline along
+      // the top edge — the way a real edge catches light — over a wide, very
+      // soft ambient shadow that reads as distance rather than as a box.
       boxShadow: {
         none: 'none',
+        lift: [
+          'inset 0 1px 0 0 hsl(var(--edge-light) / var(--edge-light-alpha))',
+          '0 1px 2px -1px hsl(var(--ambient) / var(--ambient-alpha))',
+          '0 12px 32px -12px hsl(var(--ambient) / var(--ambient-alpha))',
+        ].join(', '),
+        'lift-hover': [
+          'inset 0 1px 0 0 hsl(var(--edge-light) / calc(var(--edge-light-alpha) * 2))',
+          '0 2px 4px -2px hsl(var(--ambient) / var(--ambient-alpha))',
+          '0 24px 56px -16px hsl(var(--ambient) / var(--ambient-alpha))',
+        ].join(', '),
       },
       spacing: {
         gutter: '1.5rem',

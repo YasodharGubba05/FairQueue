@@ -11,11 +11,29 @@
  * Dark is the default. Light is the exact inversion, not a second design.
  */
 :root {
-  /* Surfaces. Three steps, all within a hair of black, so a panel reads as a
-     change in light rather than as a box. */
+  /* Surfaces. Four steps now rather than three, and spaced further apart:
+     the old scale sat so close to black that a panel was indistinguishable
+     from the page, which is how a minimal interface turns into a flat one. */
   --background: 0 0% 4%;
-  --surface: 0 0% 6%;
-  --surface-raised: 0 0% 9%;
+  --surface: 0 0% 7%;
+  --surface-raised: 0 0% 11%;
+  --surface-hover: 0 0% 14%;
+
+  /* Depth.
+     There are still no drop shadows under cards. What lifts a surface is an
+     inset hairline along its top edge — the way a real edge catches light —
+     plus a wide, very soft ambient shadow that reads as distance from the
+     page rather than as a box with a shadow attached. */
+  --edge-light: 0 0% 100%;
+  --edge-light-alpha: 0.07;
+  --ambient: 0 0% 0%;
+  --ambient-alpha: 0.5;
+
+  /* The cursor light. A soft white pool that follows the pointer across a
+     surface. This is what replaces colour as the thing that makes the
+     interface feel alive. */
+  --cursor-light: 0 0% 100%;
+  --cursor-light-alpha: 0.06;
 
   /* Lines. There are no borders in this system, only hairlines — and they are
      white at low alpha rather than a grey, so they sit on any surface. */
@@ -74,7 +92,16 @@
 :root[data-theme='light'] {
   --background: 0 0% 100%;
   --surface: 0 0% 98%;
-  --surface-raised: 0 0% 96%;
+  --surface-raised: 0 0% 95%;
+  --surface-hover: 0 0% 92%;
+
+  --edge-light: 0 0% 100%;
+  --edge-light-alpha: 0.9;
+  --ambient: 240 20% 40%;
+  --ambient-alpha: 0.1;
+
+  --cursor-light: 240 30% 30%;
+  --cursor-light-alpha: 0.05;
 
   --line: 0 0% 0%;
   --line-alpha: 0.12;

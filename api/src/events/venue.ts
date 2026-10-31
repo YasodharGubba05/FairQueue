@@ -95,7 +95,11 @@ export const DEFAULT_CAPACITY = 1_200;
  * because this inventory is simulated anyway — nothing here claims to be the
  * real seat count of a real room.
  */
-export function venueForCapacity(capacity = DEFAULT_CAPACITY): SectionSpec[] {
+export function venueForCapacity(
+  capacity = DEFAULT_CAPACITY,
+  /** Multiplies every tier price. See simulatedPriceScaleFor. */
+  priceScale = 1,
+): SectionSpec[] {
   const target = Math.min(MAX_CAPACITY, Math.max(MIN_CAPACITY, Math.round(capacity)));
 
   const specs: SectionSpec[] = [];
@@ -107,7 +111,8 @@ export function venueForCapacity(capacity = DEFAULT_CAPACITY): SectionSpec[] {
       section: tier.section,
       rows,
       seatsPerRow: tier.seatsPerRow,
-      price: tier.price,
+      // Rounded to the nearest pound so prices read as prices.
+      price: Math.round((tier.price * priceScale) / 100) * 100,
       // Centred on the axis, so the blocks stack symmetrically.
       originX: CENTRE_X - ((tier.seatsPerRow - 1) * SEAT_GAP) / 2,
       originY: y,
@@ -131,10 +136,33 @@ export function capacityOf(specs: SectionSpec[]): number {
  * and this only stops every synced event looking identical.
  */
 export function simulatedCapacityFor(externalId: string): number {
-  let hash = 0;
-  for (let i = 0; i < externalId.length; i++) {
-    hash = (hash * 31 + externalId.charCodeAt(i)) >>> 0;
-  }
   const SIZES = [420, 650, 900, 1_200, 1_600, 2_200, 3_000];
-  return SIZES[hash % SIZES.length];
+  return SIZES[hashOf(externalId) % SIZES.length];
+}
+
+/**
+ * How expensive this room is, relative to the base tiers.
+ *
+ * Without this every synced event priced identically, which made a page of
+ * them look obviously generated — a stadium and a basement club cannot both
+ * be the same forty-five pounds. Like the capacity it is derived from the
+ * event id, so it is stable: a re-sync never reprices a seat somebody is
+ * looking at.
+ *
+ * It is not a claim about what the real tickets cost. The inventory is
+ * simulated and labelled as such wherever it appears.
+ */
+export function simulatedPriceScaleFor(externalId: string): number {
+  const SCALES = [0.45, 0.6, 0.8, 1, 1.3, 1.7, 2.2];
+  // Offset so the price and the capacity do not move together, which would
+  // make every large venue the expensive one.
+  return SCALES[(hashOf(externalId) + 3) % SCALES.length];
+}
+
+function hashOf(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
 }

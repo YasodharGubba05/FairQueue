@@ -215,7 +215,13 @@ function Figure({
   className?: string;
 }) {
   return (
-    <div className={cn('flex flex-col gap-4 border-t py-8 pr-8 sm:pl-8 sm:first:pl-0', className)}>
+    <div
+      className={cn(
+        'flex flex-col gap-4 border-t py-8 pr-8 transition-colors duration-[var(--dur)] sm:pl-8 sm:first:pl-0',
+        'hover:bg-[hsl(var(--foreground)/0.025)]',
+        className,
+      )}
+    >
       <dt className="label">{label}</dt>
       <dd
         data-numeral

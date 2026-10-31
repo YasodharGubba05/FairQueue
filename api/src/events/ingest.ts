@@ -1,7 +1,13 @@
 import { EventSourceKind, EventStatus, type PrismaClient } from '@prisma/client';
 import { collectEvents } from './registry';
 import type { FetchOptions, SourcedEvent } from './types';
-import { buildSeats, capacityOf, simulatedCapacityFor, venueForCapacity } from './venue';
+import {
+  buildSeats,
+  capacityOf,
+  simulatedCapacityFor,
+  simulatedPriceScaleFor,
+  venueForCapacity,
+} from './venue';
 import { defaultEndsAt } from './lifecycle';
 
 /**
@@ -75,7 +81,10 @@ export async function upsertSourcedEvent(
   // simulated regardless, so rather than giving every event an identical room,
   // pick a plausible size deterministically from the event's own id — the same
   // event always gets the same room, and a re-sync never changes it.
-  const specs = venueForCapacity(event.capacity ?? simulatedCapacityFor(event.externalId));
+  const specs = venueForCapacity(
+    event.capacity ?? simulatedCapacityFor(event.externalId),
+    simulatedPriceScaleFor(event.externalId),
+  );
 
   const created = await prisma.event.create({
     data: {

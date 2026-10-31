@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Label, StatusLabel } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TiltCard } from '@/components/ui/tilt-card';
 import { EventFilters, EMPTY_FILTERS, type Filters } from '@/components/events/EventFilters';
 import { ProvenanceLabel, SimulatedInventoryNote } from '@/components/events/Provenance';
 import { api } from '@/lib/api';
@@ -134,10 +135,10 @@ export default function Home() {
           />
         ) : (
           <>
-            {!filtering ? <Label className="mt-12 block">Also on sale</Label> : null}
-            <ul className={filtering ? 'mt-10' : ''}>
+            {!filtering ? <Label className="mt-14 block">Also on sale</Label> : null}
+            <ul className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {rest.map((event, i) => (
-                <EventRow key={event.id} event={event} index={i} />
+                <EventCard key={event.id} event={event} index={i} />
               ))}
             </ul>
           </>
@@ -206,49 +207,60 @@ function Hero({ event }: { event: EventSummary }) {
   );
 }
 
-function EventRow({ event, index }: { event: EventSummary; index: number }) {
+function EventCard({ event, index }: { event: EventSummary; index: number }) {
   const status = STATUS[event.status];
   const open = event.status === 'LIVE' || event.status === 'PAUSED';
 
   const body = (
-    <div className="grid grid-cols-1 items-baseline gap-y-3 py-10 md:grid-cols-12 md:gap-x-8">
-      <div className="md:col-span-5">
-        <h2 className="font-display text-2xl font-light tracking-tight sm:text-3xl">{event.name}</h2>
-        <p className="mt-2 text-sm text-muted">
+    <div className="flex h-full flex-col gap-5 p-6">
+      <div className="flex items-start justify-between gap-4">
+        <StatusLabel tone={status.tone} pulse={event.status === 'LIVE'} className="whitespace-nowrap">
+          {status.label}
+        </StatusLabel>
+        <span data-numeral className="shrink-0 text-xs text-faint">
+          {formatDate(event.startsAt)}
+        </span>
+      </div>
+
+      <h2 className="font-display text-xl font-light leading-snug tracking-tight">{event.name}</h2>
+
+      <div className="mt-auto flex flex-col gap-4">
+        <p className="text-sm text-muted">
           {event.venue}
           {event.city ? ` · ${event.city}` : ''}
         </p>
-        <ProvenanceLabel event={event} className="mt-3" />
-      </div>
-      <p className="text-sm text-muted-foreground md:col-span-2">{formatDate(event.startsAt)}</p>
-      <p data-numeral className="text-sm text-muted-foreground md:col-span-2">
-        {formatPrice(event.minPrice)}–{formatPrice(event.maxPrice)}
-      </p>
-      <div className="md:col-span-3 md:text-right">
-        <StatusLabel tone={status.tone} className="whitespace-nowrap">
-          {status.label}
-        </StatusLabel>
+
+        <ProvenanceLabel event={event} />
+
+        {/* The hairline and the price sit on the card's own bottom edge, so a
+            row of cards lines up on a shared baseline. */}
+        <div className="flex items-baseline justify-between gap-4 border-t pt-4">
+          <span data-numeral className="text-sm">
+            {formatPrice(event.minPrice)}–{formatPrice(event.maxPrice)}
+          </span>
+          <span className="text-xs text-faint" data-numeral>
+            {event.availableSeats.toLocaleString()} left
+          </span>
+        </div>
       </div>
     </div>
   );
 
   return (
     <motion.li
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.42, delay: Math.min(index, 6) * 0.04, ease: [0.22, 0.61, 0.36, 1] }}
-      className="border-b"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.42, delay: Math.min(index, 8) * 0.04, ease: [0.22, 0.61, 0.36, 1] }}
     >
-      {open ? (
-        <Link
-          to={`/events/${event.id}/queue`}
-          className="block rounded-sm transition-opacity duration-[var(--dur-fast)] hover:opacity-70"
-        >
-          {body}
-        </Link>
-      ) : (
-        <div className="opacity-45">{body}</div>
-      )}
+      <TiltCard className="h-full" disabled={!open}>
+        {open ? (
+          <Link to={`/events/${event.id}/queue`} className="block h-full rounded">
+            {body}
+          </Link>
+        ) : (
+          <div className="h-full opacity-45">{body}</div>
+        )}
+      </TiltCard>
     </motion.li>
   );
 }

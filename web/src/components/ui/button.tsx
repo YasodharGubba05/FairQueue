@@ -9,18 +9,22 @@ import { cn } from '@/lib/utils';
  * three equally loud buttons has not decided what it wants you to do.
  */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-sans uppercase tracking-[0.1em] transition-colors duration-[var(--dur-fast)] disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0',
+  // Buttons lift a little and settle when pressed. Small enough to read as
+  // weight rather than as an animation.
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-sans uppercase tracking-[0.1em] [&_svg]:size-4 [&_svg]:shrink-0 disabled:pointer-events-none disabled:opacity-40 ' +
+    'transition-[background-color,box-shadow,transform,opacity] duration-[var(--dur-fast)] ease-ease ' +
+    'hover:-translate-y-px active:translate-y-0 active:scale-[0.985] disabled:translate-y-0',
   {
     variants: {
       variant: {
         // The one action this screen exists for.
         solid:
-          'bg-[hsl(var(--fill-strong))] text-[hsl(var(--fill-strong-foreground))] hover:opacity-90',
+          'bg-[hsl(var(--fill-strong))] text-[hsl(var(--fill-strong-foreground))] shadow-lift hover:opacity-95 hover:shadow-lift-hover',
         // Everything else worth clicking.
         subtle:
-          'bg-[hsl(var(--foreground)/var(--fill-subtle-alpha))] text-foreground hover:bg-[hsl(var(--foreground)/var(--fill-subtle-hover-alpha))]',
+          'bg-[hsl(var(--foreground)/var(--fill-subtle-alpha))] text-foreground hover:bg-[hsl(var(--foreground)/var(--fill-subtle-hover-alpha))] hover:shadow-lift',
         // A hairline outline, for destructive or secondary paths.
-        outline: 'border text-foreground hover:border-strong',
+        outline: 'border text-foreground hover:border-strong hover:bg-[hsl(var(--foreground)/0.04)]',
         // No chrome at all: icon buttons and inline actions.
         ghost:
           'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--foreground)/var(--fill-subtle-alpha))]',
