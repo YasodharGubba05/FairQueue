@@ -1,0 +1,116 @@
+# The api holds no state of its own, which is the whole reason Kubernetes can
+# run eight copies of it and throw traffic at any of them. Everything shared
+# lives in Redis or Postgres.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: fairqueue
+spec:
+  # No replica count here on purpose: the HPA below owns it, and setting both
+  # means every redeploy resets the scale the autoscaler just worked out.
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: fairqueue/api:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+          envFrom:
+            - configMapRef:
+                name: fairqueue-config
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fairqueue-secret
+                  key: JWT_SECRET
+            # Mission Control counts live pods, and each has to be able to say
+            # which one it is.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          # Is the process up? If not, restart it.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          # Can it actually reach Postgres and Redis? If not, stop sending it
+          # traffic — but do not restart it, because the problem is elsewhere
+          # and restarting would only make the outage louder.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 4000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: fairqueue
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 4000
+      targetPort: 4000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+  namespace: fairqueue
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # Percentage of the 100m CPU *request*, not the limit. 60% leaves
+          # room to absorb the next spike while new pods are still starting.
+          averageUtilization: 60
+  behavior:
+    scaleUp:
+      # A flash sale arrives all at once, so react on the next metrics window
+      # rather than waiting to be sure.
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+    scaleDown:
+      # Shortened from the 300s default so the benchmark can show the scale
+      # back down without a five minute wait. In production the slow default
+      # is the right choice: coming down too eagerly means thrashing when
+      # traffic is merely between spikes.
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 30

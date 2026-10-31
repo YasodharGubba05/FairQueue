@@ -1,0 +1,59 @@
+# The built frontend, served by nginx, which also proxies /api and the
+# websocket to the api Service. The browser therefore only ever talks to its
+# own origin and the frontend needs no base URL configured anywhere.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: fairqueue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: fairqueue/web:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: fairqueue
+spec:
+  type: NodePort
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80
+      # k3d maps this port out of the cluster, so the site is reachable at
+      # http://localhost:8080 without a port-forward.
+      nodePort: 30080

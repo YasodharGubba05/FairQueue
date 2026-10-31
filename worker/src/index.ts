@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { PrismaClient, EventStatus } from '@prisma/client';
 import Redis from 'ioredis';
 import { env } from './env';
@@ -20,6 +21,23 @@ const prisma = new PrismaClient();
 const redis = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });
 
 let running = true;
+
+/**
+ * The worker has no port to probe, and "the process is running" is not the
+ * question worth asking: a tick loop stuck waiting on a dead connection keeps
+ * the process alive while the queue silently stops moving. So each completed
+ * tick touches this file, and Kubernetes checks how old it is. A worker that
+ * has stopped ticking gets restarted; one that is merely idle does not.
+ */
+const HEARTBEAT_FILE = env.HEARTBEAT_FILE;
+
+function markTickComplete() {
+  try {
+    fs.writeFileSync(HEARTBEAT_FILE, String(Date.now()));
+  } catch {
+    // A missing heartbeat file is a probe problem, not a reason to stop work.
+  }
+}
 
 /** Events the worker has to service: a sale that is open or paused. */
 async function loadActiveEvents() {
@@ -135,6 +153,7 @@ async function loop() {
       // A bad tick must never kill the worker; the next one retries.
       console.error('[worker] tick failed:', (err as Error).message);
     }
+    markTickComplete();
     const elapsed = Date.now() - startedAt;
     await new Promise((resolve) => setTimeout(resolve, Math.max(0, env.TICK_MS - elapsed)));
   }

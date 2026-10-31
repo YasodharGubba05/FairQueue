@@ -1,0 +1,60 @@
+# Schema and demo data. Runs the api image, which keeps its dev dependencies
+# precisely so it can also run migrations and the seed script.
+#
+# Deliberately a Job rather than an init container on the api Deployment: with
+# the HPA running up to eight api pods, an init container would race eight
+# copies of the same migration against each other.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-seed
+  namespace: fairqueue
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app: migrate-seed
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        # Postgres accepts connections a little after the pod starts, and a
+        # migration that fails on connection refused just burns a retry.
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -U fairqueue -d fairqueue; do
+                echo "waiting for postgres"
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      containers:
+        - name: migrate-seed
+          image: fairqueue/api:dev
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              npx prisma migrate deploy
+              npm run seed
+          envFrom:
+            - configMapRef:
+                name: fairqueue-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

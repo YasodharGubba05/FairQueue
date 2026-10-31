@@ -1,0 +1,32 @@
+# Settings every service shares. Split by sensitivity rather than by service:
+# anything that would be embarrassing in a screenshot goes in the Secret.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fairqueue-config
+  namespace: fairqueue
+data:
+  # Service names resolve inside the namespace, so no addresses are hard-coded.
+  DATABASE_URL: postgresql://fairqueue:fairqueue@postgres:5432/fairqueue?schema=public
+  REDIS_URL: redis://redis:6379
+  API_PORT: "4000"
+  # naive = the deliberately broken "before" build the benchmarks compare
+  # against. `make bench` flips this and redeploys.
+  MODE: fairqueue
+  # Every virtual user in a benchmark shares the load generator's address, the
+  # same shape of problem as an office behind one NAT, so the per-address limit
+  # stays loose and the per-account limit does the real work.
+  RATE_LIMIT_IP_FACTOR: "20"
+  RATE_LIMIT_ENABLED: "true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: fairqueue-secret
+  namespace: fairqueue
+type: Opaque
+stringData:
+  # Fine for a local demo cluster; a real deployment would take these from a
+  # secret manager rather than a file in the repository.
+  POSTGRES_PASSWORD: fairqueue
+  JWT_SECRET: dev-only-change-me

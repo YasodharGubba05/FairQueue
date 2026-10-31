@@ -6,6 +6,8 @@ const schema = z.object({
   MODE: z.enum(['naive', 'fairqueue']).default('fairqueue'),
   // How often the admission/expiry loop runs.
   TICK_MS: z.coerce.number().default(1000),
+  // Touched after every completed tick; the Kubernetes liveness probe reads it.
+  HEARTBEAT_FILE: z.string().default('/tmp/worker-heartbeat'),
 });
 
 const parsed = schema.safeParse(process.env);

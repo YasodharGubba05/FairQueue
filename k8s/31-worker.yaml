@@ -1,0 +1,65 @@
+# Exactly one worker, always. It is the only process allowed to move the line
+# forward, so a second copy would hand out the same admission passes twice.
+# This is the one component that deliberately does not scale.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: fairqueue
+spec:
+  replicas: 1
+  # Stop the old worker before starting the new one, so a rollout never has two
+  # of them admitting people at the same moment.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      containers:
+        - name: worker
+          image: fairqueue/worker:dev
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: fairqueue-config
+          env:
+            - name: HEARTBEAT_FILE
+              value: /tmp/worker-heartbeat
+          # The worker has no port to probe, and "is the process running" is
+          # the wrong question: a tick loop stuck on a dead connection keeps the
+          # process alive while the queue silently stops moving. So it touches a
+          # file after every completed tick and this checks how stale that file
+          # is. Ten seconds is ten missed ticks — not a slow tick, a stopped one.
+          livenessProbe:
+            exec:
+              command:
+                - node
+                - -e
+                - |
+                  const fs = require('fs');
+                  const age = Date.now() - Number(fs.readFileSync(process.env.HEARTBEAT_FILE, 'utf8'));
+                  if (age > 10000) { console.error('last tick ' + age + 'ms ago'); process.exit(1); }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          # Nothing routes traffic to the worker, so readiness asks the only
+          # question that matters for it: has it completed a first tick?
+          readinessProbe:
+            exec:
+              command: ["test", "-f", "/tmp/worker-heartbeat"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+# No Service: nothing connects to the worker. It reaches out to Postgres and
+# Redis and is reached by nobody, so a Service would be an address with no
+# callers.

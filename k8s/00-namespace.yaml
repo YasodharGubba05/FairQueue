@@ -1,0 +1,6 @@
+# Everything FairQueue runs in lives here, so `kubectl delete namespace
+# fairqueue` is a complete uninstall.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fairqueue
