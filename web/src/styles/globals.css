@@ -5,26 +5,27 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   html {
     -webkit-text-size-adjust: 100%;
-    scroll-behavior: smooth;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-feature-settings: 'cv11', 'ss01';
+    font-synthesis-weight: none;
   }
 
-  /* One visible, consistent focus ring everywhere, for keyboard users. */
+  /* One focus ring everywhere: a thin high-contrast outline, offset so it
+     never sits on top of the thing it is marking. */
   :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+    @apply outline-none ring-1 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Respect people who ask the OS to reduce motion. */
+  /* Numbers that change in place must never make the layout twitch. */
+  .tabular,
+  [data-numeral] {
+    font-variant-numeric: tabular-nums;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -38,26 +39,31 @@
 }
 
 @layer components {
-  /* The single highlight gradient used for emphasis across the product. */
-  .text-gradient {
-    @apply bg-gradient-to-r from-accent via-accent to-highlight bg-clip-text text-transparent;
+  /* The 11px tracked label. The only piece of uppercase in the product, and
+     the thing that names every large number. */
+  .label {
+    @apply font-sans text-label uppercase text-muted;
   }
 
-  .surface-card {
-    @apply rounded-xl border border-border bg-surface shadow-soft;
+  /* A full-height panel. Home scrolls through these one at a time. */
+  .panel {
+    @apply flex min-h-[100svh] flex-col justify-center;
   }
 
-  /* Thin, unobtrusive scrollbars inside panels. */
+  /* Hairline rules, used instead of borders and card edges. */
+  .rule {
+    @apply border-t;
+  }
+
   .scroll-slim {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--border)) transparent;
+    scrollbar-color: hsl(var(--line) / var(--line-strong-alpha)) transparent;
   }
   .scroll-slim::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   .scroll-slim::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 9999px;
+    background: hsl(var(--line) / var(--line-strong-alpha));
   }
 }

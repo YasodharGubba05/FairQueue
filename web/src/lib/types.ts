@@ -69,3 +69,28 @@ export type OrderDetail = {
     seat: { id: string; section: string; row: string; number: number; price: number };
   }[];
 };
+
+/** One Mission Control reading, broadcast by the worker once a second. */
+export type StatsTick = {
+  type: 'stats';
+  eventId: string;
+  status: EventSummary['status'];
+  joined: number;
+  admitted: number;
+  inQueue: number;
+  admitPerSec: number;
+  admittedRate: number;
+  purchaseRate: number;
+  ticketRate: number;
+  seatsLeft: number;
+  totalSeats: number;
+  holds: number;
+  purchases: number;
+  ticketsSold: number;
+  blocked: number;
+  noPass: number;
+  livePods: number;
+  /** Counted in Postgres. The whole project is the claim that this stays 0. */
+  oversold: number;
+  at: number;
+};

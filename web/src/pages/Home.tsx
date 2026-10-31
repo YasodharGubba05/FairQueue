@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, MapPin, Ticket, Users, WifiOff } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Label, StatusLabel } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { api } from '@/lib/api';
 import type { EventSummary } from '@/lib/types';
-import { formatDate, formatPrice, formatTime, gradientFor } from '@/lib/utils';
+import { formatDate, formatPrice } from '@/lib/utils';
 
 /**
- * The event list. P6 adds the hero sale with its countdown and the full polish
- * pass; this is the working grid that gets you into a queue.
+ * The event list, built as full-height panels rather than a grid of cards.
+ * There is no artwork: in this system an event is its name, set large, and the
+ * three facts you need to decide — where, when, how much.
  */
 export default function Home() {
   const [events, setEvents] = useState<EventSummary[] | null>(null);
@@ -25,132 +25,168 @@ export default function Home() {
       .catch(() => setFailed(true));
   }, []);
 
-  return (
-    <div className="mx-auto max-w-page px-gutter py-10 lg:px-gutter-lg lg:py-14">
-      <header className="flex flex-col gap-3">
-        <h1 className="font-display text-display-sm sm:text-display-md">On sale</h1>
-        <p className="max-w-prose text-muted">
-          Everyone goes through the same line, in the order they arrived. No refreshing
-          contest, no bots jumping ahead.
-        </p>
-      </header>
-
-      {failed ? (
+  if (failed) {
+    return (
+      <div className="mx-auto max-w-page px-gutter lg:px-gutter-lg">
         <EmptyState
-          className="mt-10"
-          icon={WifiOff}
           tone="danger"
           title="Could not load events"
-          description="The api is not answering. Start it with `make dev-api` and reload."
+          description="The api is not answering. Start it and reload."
           action={
-            <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+            <Button variant="subtle" size="sm" onClick={() => window.location.reload()}>
               Try again
             </Button>
           }
         />
-      ) : null}
+      </div>
+    );
+  }
 
-      {!failed && events === null ? (
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {[0, 1, 2].map((i) => (
-            <Card key={i} className="overflow-hidden">
-              <Skeleton className="h-36 rounded-none" />
-              <div className="flex flex-col gap-3 p-5">
-                <Skeleton className="h-5 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-                <Skeleton className="h-9 w-full" />
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : null}
+  if (events === null) {
+    return (
+      <div className="mx-auto flex min-h-[70svh] max-w-page flex-col justify-center gap-8 px-gutter lg:px-gutter-lg">
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-20 w-full max-w-2xl" />
+        <Skeleton className="h-3 w-56" />
+      </div>
+    );
+  }
 
-      {events !== null && events.length === 0 ? (
-        <EmptyState
-          className="mt-10"
-          icon={Ticket}
-          title="No events yet"
-          description="Create one from the admin page."
-        />
-      ) : null}
+  if (events.length === 0) {
+    return (
+      <div className="mx-auto max-w-page px-gutter lg:px-gutter-lg">
+        <EmptyState title="No events yet" description="Create one from the admin page." />
+      </div>
+    );
+  }
 
-      {events !== null && events.length > 0 ? (
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {events.map((event) => (
-            <EventCard key={event.id} event={event} />
-          ))}
-        </div>
+  // The hero is the sale you can actually act on. Ordering by date would put a
+  // sold-out show at the top, which is the least useful thing to lead with.
+  const PRIORITY: Record<EventSummary['status'], number> = {
+    LIVE: 0,
+    PAUSED: 1,
+    UPCOMING: 2,
+    SOLD_OUT: 3,
+  };
+  const ordered = [...events].sort((a, b) => PRIORITY[a.status] - PRIORITY[b.status]);
+  const [headline, ...rest] = ordered;
+
+  return (
+    <div>
+      <Hero event={headline} />
+
+      {rest.length > 0 ? (
+        <section className="mx-auto max-w-page px-gutter pb-24 lg:px-gutter-lg">
+          <Label className="block border-t pt-8">Also on sale</Label>
+          <ul>
+            {rest.map((event, i) => (
+              <EventRow key={event.id} event={event} index={i} />
+            ))}
+          </ul>
+        </section>
       ) : null}
     </div>
   );
 }
 
-const STATUS: Record<
-  EventSummary['status'],
-  { label: string; variant: 'neutral' | 'accent' | 'live' | 'warning' | 'danger' }
-> = {
-  UPCOMING: { label: 'Upcoming', variant: 'accent' },
-  LIVE: { label: 'On sale now', variant: 'live' },
-  PAUSED: { label: 'Paused', variant: 'warning' },
-  SOLD_OUT: { label: 'Sold out', variant: 'danger' },
+const STATUS: Record<EventSummary['status'], { label: string; tone: 'live' | 'warning' | 'danger' | 'muted' }> = {
+  LIVE: { label: 'On sale now', tone: 'live' },
+  PAUSED: { label: 'Paused', tone: 'warning' },
+  UPCOMING: { label: 'Opening soon', tone: 'muted' },
+  SOLD_OUT: { label: 'Sold out', tone: 'danger' },
 };
 
-function EventCard({ event }: { event: EventSummary }) {
+function Hero({ event }: { event: EventSummary }) {
   const status = STATUS[event.status];
   const open = event.status === 'LIVE' || event.status === 'PAUSED';
 
   return (
-    <Card className="flex flex-col overflow-hidden transition-shadow hover:shadow-raised">
-      {/* Abstract artwork derived from the event id: no real images or logos. */}
-      <div
-        className="relative h-36 w-full"
-        style={{ background: gradientFor(event.id) }}
-        aria-hidden
+    <section className="mx-auto flex min-h-[calc(100svh-var(--spacing-nav,4.5rem))] max-w-page flex-col justify-center px-gutter py-20 lg:px-gutter-lg">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.68, ease: [0.22, 0.61, 0.36, 1] }}
+        className="flex flex-col items-start gap-8"
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-surface/90 to-transparent" />
-      </div>
+        <StatusLabel tone={status.tone} pulse={event.status === 'LIVE'}>
+          {status.label}
+        </StatusLabel>
 
-      <div className="flex flex-1 flex-col gap-3 p-5">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="font-display text-lg font-semibold leading-tight">{event.name}</h2>
-          <Badge variant={status.variant} className="shrink-0">
-            {status.label}
-          </Badge>
-        </div>
+        <h1 className="max-w-5xl font-display text-display-md sm:text-display-lg lg:text-display-xl">
+          {event.name}
+        </h1>
 
-        <dl className="flex flex-col gap-1.5 text-sm text-muted">
-          <div className="flex items-center gap-2">
-            <MapPin className="size-3.5 shrink-0" aria-hidden />
-            <dd className="truncate">{event.venue}</dd>
-          </div>
-          <div className="flex items-center gap-2">
-            <CalendarDays className="size-3.5 shrink-0" aria-hidden />
-            <dd>
-              {formatDate(event.startsAt)} · {formatTime(event.startsAt)}
-            </dd>
-          </div>
-          <div className="flex items-center gap-2">
-            <Users className="size-3.5 shrink-0" aria-hidden />
-            <dd>
-              {event.availableSeats.toLocaleString()} of {event.totalSeats.toLocaleString()} seats left
-            </dd>
-          </div>
-        </dl>
-
-        <p className="mt-auto pt-2 text-sm font-medium">
-          {formatPrice(event.minPrice)} – {formatPrice(event.maxPrice)}
+        <p className="text-base text-muted-foreground">
+          {event.venue} · {formatDate(event.startsAt)}
         </p>
 
-        {open ? (
-          <Button asChild variant="gradient" className="w-full">
-            <Link to={`/events/${event.id}/queue`}>Join the queue</Link>
-          </Button>
-        ) : (
-          <Button variant="secondary" className="w-full" disabled>
-            {event.status === 'SOLD_OUT' ? 'Sold out' : 'Sale not open yet'}
-          </Button>
-        )}
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row">
+          {open ? (
+            <>
+              <Button asChild variant="solid" size="lg" className="w-full sm:w-52">
+                <Link to={`/events/${event.id}/queue`}>Join the queue</Link>
+              </Button>
+              <Button asChild variant="subtle" size="lg" className="w-full sm:w-52">
+                <Link to={`/events/${event.id}/seats`}>View seats</Link>
+              </Button>
+            </>
+          ) : (
+            <Button variant="subtle" size="lg" className="w-full sm:w-52" disabled>
+              {event.status === 'SOLD_OUT' ? 'Sold out' : 'Not open yet'}
+            </Button>
+          )}
+        </div>
+
+        <p data-numeral className="mt-4 text-sm text-faint">
+          {event.totalSeats.toLocaleString()} seats · {formatPrice(event.minPrice)} to{' '}
+          {formatPrice(event.maxPrice)}
+        </p>
+      </motion.div>
+    </section>
+  );
+}
+
+function EventRow({ event, index }: { event: EventSummary; index: number }) {
+  const status = STATUS[event.status];
+  const open = event.status === 'LIVE' || event.status === 'PAUSED';
+  const href = open ? `/events/${event.id}/queue` : null;
+
+  const body = (
+    <div className="grid grid-cols-1 items-baseline gap-y-3 py-10 md:grid-cols-12 md:gap-x-8">
+      <div className="md:col-span-6">
+        <h2 className="font-display text-2xl font-light tracking-tight sm:text-3xl">{event.name}</h2>
+        <p className="mt-2 text-sm text-muted">{event.venue}</p>
       </div>
-    </Card>
+      <p className="text-sm text-muted-foreground md:col-span-2">{formatDate(event.startsAt)}</p>
+      <p data-numeral className="text-sm text-muted-foreground md:col-span-2">
+        {formatPrice(event.minPrice)}–{formatPrice(event.maxPrice)}
+      </p>
+      <div className="md:col-span-2 md:text-right">
+        <StatusLabel tone={status.tone} className="whitespace-nowrap">
+          {status.label}
+        </StatusLabel>
+      </div>
+    </div>
+  );
+
+  return (
+    <motion.li
+      initial={{ opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.42, delay: index * 0.05, ease: [0.22, 0.61, 0.36, 1] }}
+      className="border-b"
+    >
+      {href ? (
+        <Link
+          to={href}
+          className="block rounded-sm transition-opacity duration-[var(--dur-fast)] hover:opacity-70"
+        >
+          {body}
+        </Link>
+      ) : (
+        <div className="opacity-45">{body}</div>
+      )}
+    </motion.li>
   );
 }

@@ -44,8 +44,8 @@ const SeatDot = memo(function SeatDot({
       r={selected || focused ? SEAT_RADIUS + 1.1 : SEAT_RADIUS}
       fill={seatFill(status, selected, tier)}
       opacity={status === 'sold' ? 0.55 : 1}
-      stroke={focused ? 'hsl(var(--foreground))' : selected ? 'hsl(var(--accent))' : 'none'}
-      strokeWidth={focused ? 1.8 : selected ? 2.4 : 0}
+      stroke={focused ? 'hsl(var(--foreground))' : 'none'}
+      strokeWidth={focused ? 1.6 : 0}
       className={pickable ? 'cursor-pointer' : 'cursor-not-allowed'}
       style={{ transition: 'fill 160ms ease, r 120ms ease' }}
       onClick={() => pickable && onPick(seat)}
@@ -200,15 +200,15 @@ export function SeatMapCanvas({
     <div className="relative">
       {/* The venue is taller than it is wide, so the map is capped and centred
           rather than stretched across a desktop window with empty bands down
-          both sides. */}
+          both sides. No frame around it: the map sits on the page. */}
       <div
         ref={wrapRef}
-        className="relative mx-auto w-full max-w-[660px] overflow-hidden rounded-xl border border-border bg-surface"
+        className="relative mx-auto w-full max-w-[680px] overflow-hidden"
         onMouseLeave={() => setTooltip(null)}
       >
         <svg
           viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
-          className="block h-[clamp(380px,60vh,720px)] w-full touch-none select-none"
+          className="block h-[clamp(420px,66svh,760px)] w-full touch-none select-none"
           role="application"
           aria-label={
             focusedSeat
@@ -234,15 +234,15 @@ export function SeatMapCanvas({
                 width={stage.width}
                 height={stage.height}
                 rx={6}
-                fill="hsl(var(--surface-raised))"
-                stroke="hsl(var(--border))"
+                fill="none"
+                stroke="hsl(var(--line) / var(--line-strong-alpha))"
               />
               <text
                 x={stage.x + stage.width / 2}
                 y={stage.y + stage.height / 2 + 4}
                 textAnchor="middle"
-                fontSize="13"
-                letterSpacing="3"
+                fontSize="11"
+                letterSpacing="4"
                 fill="hsl(var(--muted))"
               >
                 STAGE
@@ -270,25 +270,27 @@ export function SeatMapCanvas({
 
         {tooltip ? (
           <div
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+12px)] whitespace-nowrap rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-xs shadow-raised"
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+14px)] whitespace-nowrap border bg-background px-3 py-2 text-xs"
             style={{ left: tooltip.left, top: tooltip.top }}
             role="presentation"
           >
-            <span className="font-medium">
+            <span className="text-foreground">
               {tooltip.seat.section} · Row {tooltip.seat.row} · Seat {tooltip.seat.number}
             </span>
-            <span className="ml-2 text-muted">{formatPrice(tooltip.seat.price)}</span>
+            <span className="ml-3 text-muted" data-numeral>
+              {formatPrice(tooltip.seat.price)}
+            </span>
             {tooltip.status !== 'available' ? (
-              <span className="ml-2 text-muted">
+              <span className="ml-3 text-faint">
                 {tooltip.status === 'sold' ? 'sold' : 'on hold'}
               </span>
             ) : null}
           </div>
         ) : null}
 
-        <div className="absolute bottom-3 right-3 flex flex-col gap-1.5">
+        <div className="absolute bottom-2 right-2 flex flex-col">
           <Button
-            variant="secondary"
+            variant="ghost"
             size="icon"
             onClick={() => zoomTo(scale * 1.4)}
             disabled={scale >= MAX_SCALE}
@@ -297,7 +299,7 @@ export function SeatMapCanvas({
             <Plus aria-hidden />
           </Button>
           <Button
-            variant="secondary"
+            variant="ghost"
             size="icon"
             onClick={() => zoomTo(scale / 1.4)}
             disabled={scale <= MIN_SCALE}
@@ -306,7 +308,7 @@ export function SeatMapCanvas({
             <Minus aria-hidden />
           </Button>
           <Button
-            variant="secondary"
+            variant="ghost"
             size="icon"
             onClick={reset}
             disabled={scale === 1 && pan.x === 0 && pan.y === 0}
@@ -324,26 +326,31 @@ export function SeatMapCanvas({
 
 function Legend({ tiers }: { tiers: ReturnType<typeof priceTiers> }) {
   return (
-    <ul className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted">
+    <ul className="mx-auto mt-6 flex max-w-[680px] flex-wrap items-center gap-x-6 gap-y-3 border-t pt-5">
       {tiers.map((t) => (
-        <li key={t.price} className="flex items-center gap-1.5">
+        <li key={t.price} className="flex items-center gap-2">
           <span
-            className="size-2.5 rounded-full"
+            className="size-2 rounded-pill"
             style={{ background: `hsl(var(--tier-${t.tier}))` }}
             aria-hidden
           />
-          {formatPrice(t.price)}
-          <span className="text-muted/70">· {t.sections.join(', ')}</span>
+          <span className="text-xs text-foreground" data-numeral>
+            {formatPrice(t.price)}
+          </span>
+          <span className="text-xs text-faint">{t.sections.join(', ')}</span>
         </li>
       ))}
-      <li className="flex items-center gap-1.5">
-        <span className="size-2.5 rounded-full bg-accent" aria-hidden /> Yours
+      <li className="flex items-center gap-2">
+        <span className="size-2 rounded-pill bg-foreground" aria-hidden />
+        <span className="text-xs text-muted">Yours</span>
       </li>
-      <li className="flex items-center gap-1.5">
-        <span className="size-2.5 rounded-full bg-seat-held" aria-hidden /> On hold
+      <li className="flex items-center gap-2">
+        <span className="size-2 rounded-pill bg-seat-held" aria-hidden />
+        <span className="text-xs text-muted">On hold</span>
       </li>
-      <li className="flex items-center gap-1.5">
-        <span className="size-2.5 rounded-full bg-seat-sold" aria-hidden /> Sold
+      <li className="flex items-center gap-2">
+        <span className="size-2 rounded-pill bg-seat-sold" aria-hidden />
+        <span className="text-xs text-muted">Sold</span>
       </li>
     </ul>
   );

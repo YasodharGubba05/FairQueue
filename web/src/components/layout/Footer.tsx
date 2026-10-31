@@ -1,13 +1,12 @@
-import { Logo } from './Logo';
+import { Label } from '@/components/ui/label';
 
 export function Footer() {
   return (
-    <footer className="border-t border-border">
-      <div className="mx-auto flex max-w-page flex-col gap-3 px-gutter py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between lg:px-gutter-lg">
-        <Logo />
-        <p>
-          A portfolio project. Events, venues and artwork are invented; no real
-          brands or artists are represented.
+    <footer className="border-t">
+      <div className="mx-auto flex max-w-page flex-col gap-3 px-gutter py-10 lg:flex-row lg:items-center lg:justify-between lg:px-gutter-lg">
+        <Label>FairQueue</Label>
+        <p className="max-w-reading text-xs leading-relaxed text-faint">
+          A portfolio project. Payment is simulated and no real tickets are sold.
         </p>
       </div>
     </footer>

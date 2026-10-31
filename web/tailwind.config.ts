@@ -1,7 +1,11 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 
-/** Every colour here points at a token in src/styles/tokens.css. */
+/**
+ * Every colour here points at a token in src/styles/tokens.css, and there is
+ * deliberately no `accent`: the interface has no accent colour. If a component
+ * wants to stand out it does it with size, weight or space, not hue.
+ */
 const config: Config = {
   darkMode: ['selector', ':root:not([data-theme="light"])'],
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -13,19 +17,14 @@ const config: Config = {
           DEFAULT: 'hsl(var(--surface))',
           raised: 'hsl(var(--surface-raised))',
         },
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
         foreground: 'hsl(var(--foreground))',
         muted: {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))',
         },
-        accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))',
-        },
-        highlight: 'hsl(var(--highlight))',
+        faint: 'hsl(var(--faint))',
+        ring: 'hsl(var(--ring))',
+        // Colour that means something.
         tier: {
           1: 'hsl(var(--tier-1))',
           2: 'hsl(var(--tier-2))',
@@ -40,56 +39,72 @@ const config: Config = {
         warning: 'hsl(var(--warning))',
         danger: 'hsl(var(--danger))',
       },
+      borderColor: {
+        // One hairline, white at low alpha in the dark theme and black in the
+        // light one, so it sits correctly on any surface.
+        DEFAULT: 'hsl(var(--line) / var(--line-alpha))',
+        strong: 'hsl(var(--line) / var(--line-strong-alpha))',
+      },
       fontFamily: {
+        // Outfit is geometric and carries very light weights at large sizes,
+        // which is what this design is built on. Inter does the small UI text,
+        // where Outfit would cost legibility.
+        display: ['Outfit', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
-        display: ['"Space Grotesk"', 'Inter', 'ui-sans-serif', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       fontSize: {
-        // Display sizes for headings; body sizes stay on Tailwind's scale.
-        'display-sm': ['1.75rem', { lineHeight: '1.15', letterSpacing: '-0.02em', fontWeight: '600' }],
-        'display-md': ['2.5rem', { lineHeight: '1.08', letterSpacing: '-0.03em', fontWeight: '600' }],
-        'display-lg': ['3.5rem', { lineHeight: '1.02', letterSpacing: '-0.035em', fontWeight: '700' }],
-        'display-xl': ['4.75rem', { lineHeight: '0.98', letterSpacing: '-0.04em', fontWeight: '700' }],
+        // The label: 11px, uppercase, widely tracked. Used everywhere a small
+        // piece of text names a large one.
+        label: ['0.6875rem', { lineHeight: '1', letterSpacing: '0.22em', fontWeight: '400' }],
+        // Display sizes are thin and tightly tracked. Nothing here is bold:
+        // scale does the work that weight does in an ordinary interface.
+        'display-sm': ['2.25rem', { lineHeight: '1.08', letterSpacing: '-0.02em', fontWeight: '300' }],
+        'display-md': ['3.25rem', { lineHeight: '1.04', letterSpacing: '-0.028em', fontWeight: '300' }],
+        'display-lg': ['4.5rem', { lineHeight: '1', letterSpacing: '-0.035em', fontWeight: '300' }],
+        'display-xl': ['6.5rem', { lineHeight: '0.95', letterSpacing: '-0.04em', fontWeight: '300' }],
+        'numeral': ['7.5rem', { lineHeight: '0.9', letterSpacing: '-0.045em', fontWeight: '300' }],
       },
       borderRadius: {
+        none: 'var(--radius-none)',
         sm: 'var(--radius-sm)',
         DEFAULT: 'var(--radius)',
-        md: 'var(--radius)',
-        lg: 'var(--radius-lg)',
-        xl: 'var(--radius-xl)',
+        pill: 'var(--radius-pill)',
       },
+      // No shadow scale at all. Depth in this system comes from surface
+      // lightness, never from a drop shadow.
       boxShadow: {
-        soft: 'var(--shadow-soft)',
-        raised: 'var(--shadow-raised)',
-        glow: 'var(--shadow-glow)',
+        none: 'none',
       },
       spacing: {
-        // Page gutters and the fixed nav height, so layouts never guess.
-        gutter: '1rem',
-        'gutter-lg': '2rem',
-        nav: '4rem',
+        gutter: '1.5rem',
+        'gutter-lg': '3rem',
+        nav: '4.5rem',
       },
       maxWidth: {
-        page: '80rem',
+        page: '84rem',
+        reading: '34rem',
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'var(--ease)',
+        ease: 'var(--ease)',
+      },
+      transitionDuration: {
+        DEFAULT: 'var(--dur)',
       },
       keyframes: {
-        'fade-up': {
-          from: { opacity: '0', transform: 'translateY(8px)' },
+        'rise': {
+          from: { opacity: '0', transform: 'translateY(12px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
-        shimmer: {
-          '100%': { transform: 'translateX(100%)' },
-        },
-        'pulse-ring': {
-          '0%': { opacity: '0.6', transform: 'scale(0.95)' },
-          '70%, 100%': { opacity: '0', transform: 'scale(1.25)' },
+        'fade': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
         },
       },
       animation: {
-        'fade-up': 'fade-up 0.4s ease-out both',
-        shimmer: 'shimmer 1.6s infinite',
-        'pulse-ring': 'pulse-ring 2s ease-out infinite',
+        rise: 'rise var(--dur) var(--ease) both',
+        fade: 'fade var(--dur-slow) var(--ease) both',
       },
     },
   },

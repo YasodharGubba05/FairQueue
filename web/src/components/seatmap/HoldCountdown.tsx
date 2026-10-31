@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Timer } from 'lucide-react';
 import { cn, formatCountdown } from '@/lib/utils';
 
 /**
- * How long the seats stay yours. The buyer needs to see this the whole time —
- * a hold quietly running out while they fill in a card is the worst version of
- * this screen.
+ * How long the seats stay yours. A hold quietly running out while someone is
+ * filling in a card is the worst thing this product could do, so the number is
+ * never hidden — and it turns red in the last minute rather than shouting the
+ * whole time.
  */
 export function HoldCountdown({
   expiresAt,
@@ -38,21 +38,24 @@ export function HoldCountdown({
 
   if (expiresAt === null) return null;
 
-  // Under a minute left is worth shouting about.
   const urgent = remaining < 60_000;
 
   return (
     <span
-      className={cn(
-        'inline-flex items-center gap-1.5 text-sm tabular-nums',
-        urgent ? 'text-danger' : 'text-muted',
-        className,
-      )}
+      className={cn('inline-flex items-baseline gap-2.5', className)}
       role="timer"
       aria-live={urgent ? 'assertive' : 'off'}
     >
-      <Timer className="size-4" aria-hidden />
-      {formatCountdown(remaining)}
+      <span className="label">Held for</span>
+      <span
+        data-numeral
+        className={cn(
+          'font-display text-base font-light transition-colors duration-[var(--dur-fast)]',
+          urgent ? 'text-danger' : 'text-foreground',
+        )}
+      >
+        {formatCountdown(remaining)}
+      </span>
       <span className="sr-only">left to complete your purchase</span>
     </span>
   );

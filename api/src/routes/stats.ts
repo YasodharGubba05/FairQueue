@@ -8,6 +8,15 @@ export const statsRouter = Router();
 
 export type EventStats = {
   eventId: string;
+  status: string;
+  admitPerSec: number;
+  /** Always 0 here: a single read cannot know a rate. The worker's per-second
+   *  broadcast fills these in from the change between ticks. Returned anyway so
+   *  this endpoint and the broadcast are the same shape, and a dashboard never
+   *  has to guard against a missing field. */
+  admittedRate: number;
+  purchaseRate: number;
+  ticketRate: number;
   inQueue: number;
   joined: number;
   admitted: number;
@@ -32,7 +41,10 @@ export type EventStats = {
  * record can answer honestly — asking Redis would be asking the thing that is
  * supposed to prevent it whether it prevented it.
  */
-export async function readEventStats(eventId: string): Promise<EventStats> {
+export async function readEventStats(
+  eventId: string,
+  event?: { status: string; admitPerSec: number },
+): Promise<EventStats> {
   const now = Date.now();
 
   const [
@@ -72,6 +84,11 @@ export async function readEventStats(eventId: string): Promise<EventStats> {
 
   return {
     eventId,
+    status: event?.status ?? 'UNKNOWN',
+    admitPerSec: event?.admitPerSec ?? 0,
+    admittedRate: 0,
+    purchaseRate: 0,
+    ticketRate: 0,
     joined,
     admitted,
     inQueue: Math.max(0, joined - admitted),
@@ -93,12 +110,12 @@ statsRouter.get('/api/events/:eventId/stats', async (req: Request, res: Response
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
-    select: { id: true },
+    select: { id: true, status: true, admitPerSec: true },
   });
   if (!event) {
     res.status(404).json({ error: 'Event not found' });
     return;
   }
 
-  res.json(await readEventStats(eventId));
+  res.json(await readEventStats(eventId, event));
 });

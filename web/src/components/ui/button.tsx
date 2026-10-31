@@ -3,29 +3,38 @@ import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
+/**
+ * Buttons are pills with small, widely tracked uppercase text. There are only
+ * two that matter — a solid one and a translucent one — because a screen with
+ * three equally loud buttons has not decided what it wants you to do.
+ */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-[background,color,box-shadow,transform] disabled:pointer-events-none disabled:opacity-50 active:translate-y-px [&_svg]:size-4 [&_svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-pill font-sans uppercase tracking-[0.1em] transition-colors duration-[var(--dur-fast)] disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        primary:
-          'bg-accent text-accent-foreground shadow-glow hover:bg-accent/90',
-        gradient:
-          'bg-gradient-to-r from-accent to-highlight text-accent-foreground shadow-glow hover:opacity-95',
-        secondary: 'bg-surface-raised text-foreground border border-border hover:bg-surface-raised/70',
-        outline: 'border border-border bg-transparent hover:bg-surface-raised/60',
-        ghost: 'bg-transparent hover:bg-surface-raised/60',
-        danger: 'bg-danger text-white hover:bg-danger/90',
-        link: 'bg-transparent text-accent underline-offset-4 hover:underline',
+        // The one action this screen exists for.
+        solid:
+          'bg-[hsl(var(--fill-strong))] text-[hsl(var(--fill-strong-foreground))] hover:opacity-90',
+        // Everything else worth clicking.
+        subtle:
+          'bg-[hsl(var(--foreground)/var(--fill-subtle-alpha))] text-foreground hover:bg-[hsl(var(--foreground)/var(--fill-subtle-hover-alpha))]',
+        // A hairline outline, for destructive or secondary paths.
+        outline: 'border text-foreground hover:border-strong',
+        // No chrome at all: icon buttons and inline actions.
+        ghost:
+          'text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--foreground)/var(--fill-subtle-alpha))]',
+        danger: 'bg-danger text-white hover:opacity-90',
       },
       size: {
-        sm: 'h-9 px-3 text-sm',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-12 px-6 text-base',
-        icon: 'h-10 w-10',
+        sm: 'h-8 px-4 text-[0.6875rem]',
+        md: 'h-11 px-7 text-[0.6875rem]',
+        lg: 'h-13 px-10 text-xs',
+        // Icon buttons keep their own shape and drop the tracking.
+        icon: 'size-10 rounded-pill px-0 tracking-normal',
       },
     },
-    defaultVariants: { variant: 'primary', size: 'md' },
+    defaultVariants: { variant: 'solid', size: 'md' },
   },
 );
 

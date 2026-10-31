@@ -1,13 +1,15 @@
 import { cn } from '@/lib/utils';
 
-/** Placeholder block shown while data loads, so the layout never jumps. */
+/**
+ * A loading placeholder. Just a faint block that breathes — no shimmer sweep,
+ * because a gradient animation is exactly the kind of ornament this design
+ * does without.
+ */
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('relative overflow-hidden rounded-md bg-surface-raised', className)}
+      className={cn('animate-pulse bg-[hsl(var(--foreground)/0.06)]', className)}
       {...props}
-    >
-      <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-foreground/10 to-transparent" />
-    </div>
+    />
   );
 }

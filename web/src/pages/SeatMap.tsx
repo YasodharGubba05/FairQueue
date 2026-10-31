@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertCircle, ArrowLeft, WifiOff } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Label, StatusLabel } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SeatMapCanvas } from '@/components/seatmap/SeatMapCanvas';
@@ -175,12 +175,11 @@ export default function SeatMap() {
     return (
       <div className="mx-auto max-w-page px-gutter py-16 lg:px-gutter-lg">
         <EmptyState
-          icon={AlertCircle}
           tone="danger"
           title="Could not load the seat map"
           description={error}
           action={
-            <Button asChild variant="secondary" size="sm">
+            <Button asChild variant="subtle" size="sm">
               <Link to="/">Back to events</Link>
             </Button>
           }
@@ -190,35 +189,36 @@ export default function SeatMap() {
   }
 
   return (
-    <div className="mx-auto max-w-page px-gutter py-8 pb-40 lg:px-gutter-lg">
+    <div className="mx-auto max-w-page px-gutter pb-48 pt-8 lg:px-gutter-lg">
       <Link
         to="/"
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md text-sm text-muted hover:text-foreground"
+        className="inline-flex items-center gap-2 rounded-sm text-sm text-muted transition-colors duration-[var(--dur-fast)] hover:text-foreground"
       >
-        <ArrowLeft className="size-4" aria-hidden /> All events
+        <ArrowLeft className="size-3.5" aria-hidden /> All events
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
+      <div className="mb-10 mt-8 flex flex-wrap items-end justify-between gap-6 border-b pb-8">
+        <div className="flex flex-col gap-3">
+          <StatusLabel tone={online ? 'live' : 'warning'} pulse={online}>
+            {online ? 'Live' : 'Reconnecting'}
+          </StatusLabel>
           <h1 className="font-display text-display-sm sm:text-display-md">
-            {event?.name ?? <Skeleton className="h-9 w-72" />}
+            {event?.name ?? <Skeleton className="h-10 w-80" />}
           </h1>
-          {event ? <p className="mt-1 text-sm text-muted">{event.venue}</p> : null}
+          {event ? <p className="text-sm text-muted">{event.venue}</p> : null}
         </div>
-        <div className="flex items-center gap-2">
-          {!online ? (
-            <Badge variant="warning">
-              <WifiOff className="size-3" aria-hidden /> Reconnecting
-            </Badge>
-          ) : (
-            <Badge variant="live">Live</Badge>
-          )}
-          {event ? <Badge variant="neutral">Up to {event.maxSeatsPerUser} seats</Badge> : null}
-        </div>
+        {event ? (
+          <div className="flex flex-col items-start gap-2 lg:items-end">
+            <Label>Maximum</Label>
+            <span className="font-display text-lg font-light">
+              {event.maxSeatsPerUser} seats per person
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {seats === null ? (
-        <Skeleton className="h-[clamp(380px,60vh,720px)] w-full rounded-xl" />
+        <Skeleton className="mx-auto h-[clamp(420px,66svh,760px)] w-full max-w-[680px]" />
       ) : (
         <SeatMapCanvas
           seats={seats}
@@ -228,7 +228,7 @@ export default function SeatMap() {
         />
       )}
 
-      <p className="mt-4 text-sm text-muted">
+      <p className="mx-auto mt-6 max-w-reading text-center text-xs leading-relaxed text-faint">
         Pick a seat and it is held for you for five minutes. Scroll to zoom, drag to move, or use
         the arrow keys and Enter.
       </p>

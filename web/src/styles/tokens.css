@@ -1,84 +1,106 @@
 /*
- * Design tokens. Dark is the default theme; adding data-theme="light" to <html>
- * swaps the same token names, so no component ever needs to know the theme.
- * Values are raw HSL channels so Tailwind can apply opacity to them.
+ * Design tokens.
+ *
+ * The rule this system runs on: colour is information, never decoration.
+ * The interface itself is black, white and four greys — no accent colour in
+ * any chrome, anywhere. Colour appears only where it carries meaning a buyer
+ * has to read: what a seat costs, that a seat is gone, that something failed.
+ * The seat map ends up the only genuinely colourful surface in the product,
+ * which is right, because it is the product.
+ *
+ * Dark is the default. Light is the exact inversion, not a second design.
  */
 :root {
-  /* Surfaces */
-  --background: 240 12% 5%;
-  --surface: 240 10% 8%;
-  --surface-raised: 240 9% 11%;
-  --border: 240 8% 18%;
-  --input: 240 8% 16%;
+  /* Surfaces. Three steps, all within a hair of black, so a panel reads as a
+     change in light rather than as a box. */
+  --background: 0 0% 4%;
+  --surface: 0 0% 6%;
+  --surface-raised: 0 0% 9%;
 
-  /* Text */
-  --foreground: 240 15% 97%;
-  --muted: 240 6% 60%;
-  --muted-foreground: 240 6% 68%;
+  /* Lines. There are no borders in this system, only hairlines — and they are
+     white at low alpha rather than a grey, so they sit on any surface. */
+  --line: 0 0% 100%;
+  --line-alpha: 0.10;
+  --line-strong-alpha: 0.18;
 
-  /* One bold accent, plus the second stop used for highlight gradients */
-  --accent: 252 100% 65%;
-  --accent-foreground: 0 0% 100%;
-  --accent-soft: 252 100% 65%;
-  --highlight: 188 86% 53%;
+  /* Text. Four steps, and the gaps between them are wide on purpose: a flat
+     hierarchy is what makes an interface look undesigned. */
+  --foreground: 0 0% 100%;
+  --muted-foreground: 0 0% 64%;
+  --muted: 0 0% 45%;
+  --faint: 0 0% 32%;
 
-  /* Seat price tiers, most expensive first. Distinct in hue and in lightness,
-     so the map still reads if you cannot tell the hues apart. */
-  --tier-1: 330 85% 62%;
-  --tier-2: 268 85% 68%;
-  --tier-3: 205 85% 58%;
-  --tier-4: 165 70% 48%;
-  /* Seat states */
-  --seat-held: 38 90% 58%;
-  --seat-sold: 240 6% 28%;
+  /* Fills for controls, derived from the foreground so they invert cleanly. */
+  --fill-strong: 0 0% 100%;
+  --fill-strong-foreground: 0 0% 4%;
+  --fill-subtle-alpha: 0.10;
+  --fill-subtle-hover-alpha: 0.16;
 
-  /* Status */
-  --success: 152 72% 45%;
-  --warning: 38 95% 56%;
-  --danger: 355 85% 60%;
-  --ring: 252 100% 70%;
+  /* --- colour, which only ever means something --- */
 
-  /* Shape */
-  --radius-sm: 0.375rem;
-  --radius: 0.625rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
+  /* Seat price tiers, most expensive first. Separated in lightness as well as
+     hue, so the map still reads without colour vision. */
+  --tier-1: 14 90% 61%;
+  --tier-2: 38 94% 58%;
+  --tier-3: 190 85% 55%;
+  --tier-4: 160 60% 50%;
 
-  /* Elevation */
-  --shadow-soft: 0 1px 2px hsl(240 20% 2% / 0.4), 0 8px 24px -8px hsl(240 20% 2% / 0.5);
-  --shadow-raised: 0 2px 4px hsl(240 20% 2% / 0.5), 0 16px 48px -12px hsl(240 20% 2% / 0.6);
-  --shadow-glow: 0 0 0 1px hsl(var(--accent) / 0.25), 0 12px 40px -8px hsl(var(--accent) / 0.45);
+  /* Seat states. Held is a warning, sold is simply absent. */
+  --seat-held: 38 94% 58%;
+  --seat-sold: 0 0% 20%;
+
+  /* Status. Used on numbers and messages, never as a background wash. */
+  --success: 152 70% 50%;
+  --warning: 38 94% 58%;
+  --danger: 4 90% 62%;
+
+  /* Focus. The one ring in the system, high contrast in both themes. */
+  --ring: 0 0% 100%;
+
+  /* Shape. Almost everything is square; only buttons are pills. There are no
+     rounded cards, because there are no cards. */
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius: 4px;
+  --radius-pill: 999px;
+
+  /* Motion. Long and linear. Nothing in this interface springs or bounces. */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 180ms;
+  --dur: 420ms;
+  --dur-slow: 680ms;
 }
 
 :root[data-theme='light'] {
-  --background: 250 40% 99%;
-  --surface: 0 0% 100%;
-  --surface-raised: 250 30% 97%;
-  --border: 245 20% 89%;
-  --input: 245 20% 92%;
+  --background: 0 0% 100%;
+  --surface: 0 0% 98%;
+  --surface-raised: 0 0% 96%;
 
-  --foreground: 240 25% 12%;
-  --muted: 240 8% 44%;
-  --muted-foreground: 240 8% 38%;
+  --line: 0 0% 0%;
+  --line-alpha: 0.12;
+  --line-strong-alpha: 0.22;
 
-  --accent: 252 92% 56%;
-  --accent-foreground: 0 0% 100%;
-  --accent-soft: 252 92% 56%;
-  --highlight: 188 80% 42%;
+  --foreground: 0 0% 4%;
+  --muted-foreground: 0 0% 34%;
+  --muted: 0 0% 48%;
+  --faint: 0 0% 64%;
 
-  --tier-1: 330 78% 48%;
-  --tier-2: 268 72% 55%;
-  --tier-3: 205 82% 44%;
-  --tier-4: 165 65% 34%;
-  --seat-held: 32 92% 46%;
-  --seat-sold: 240 10% 78%;
+  --fill-strong: 0 0% 4%;
+  --fill-strong-foreground: 0 0% 100%;
+  --fill-subtle-alpha: 0.07;
+  --fill-subtle-hover-alpha: 0.12;
 
-  --success: 152 65% 36%;
-  --warning: 32 92% 44%;
-  --danger: 355 75% 50%;
-  --ring: 252 92% 60%;
+  --tier-1: 14 80% 48%;
+  --tier-2: 36 90% 44%;
+  --tier-3: 196 85% 40%;
+  --tier-4: 162 60% 34%;
 
-  --shadow-soft: 0 1px 2px hsl(245 30% 40% / 0.08), 0 8px 24px -8px hsl(245 30% 40% / 0.12);
-  --shadow-raised: 0 2px 4px hsl(245 30% 40% / 0.1), 0 16px 48px -12px hsl(245 30% 40% / 0.16);
-  --shadow-glow: 0 0 0 1px hsl(var(--accent) / 0.2), 0 12px 40px -8px hsl(var(--accent) / 0.3);
+  --seat-held: 36 90% 46%;
+  --seat-sold: 0 0% 82%;
+
+  --success: 152 65% 34%;
+  --warning: 32 90% 40%;
+  --danger: 4 75% 48%;
+
+  --ring: 0 0% 4%;
 }

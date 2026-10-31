@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Clock, CreditCard, Lock, TicketX } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input, Label } from '@/components/ui/input';
+import { FieldLabel, Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { HoldCountdown } from '@/components/seatmap/HoldCountdown';
@@ -15,11 +15,7 @@ import { useAuthStore } from '@/store/auth';
 import { formatPrice } from '@/lib/utils';
 
 /** What went wrong, and what the buyer can actually do about it. */
-type Failure = {
-  title: string;
-  description: string;
-  action: 'back-to-seats' | 'retry';
-};
+type Failure = { title: string; description: string; action: 'back-to-seats' | 'retry' };
 
 function failureFor(err: ApiError): Failure {
   if (err.status === 402) {
@@ -73,7 +69,6 @@ export default function Checkout() {
           api.get<{ seats: Seat[] }>(`/api/events/${eventId}/seats`),
         ]);
         if (cancelled) return;
-
         setEvent(eventRes.event);
         setExpiresAt(holds.expiresAt);
         const held = new Set(holds.seatIds);
@@ -132,19 +127,17 @@ export default function Checkout() {
 
   const total = (seats ?? []).reduce((acc, s) => acc + s.price, 0);
 
-  // Nothing held and nothing to retry: there is no checkout to show.
   if (seats !== null && seats.length === 0 && failure?.action !== 'retry') {
     return (
-      <div className="mx-auto max-w-page px-gutter py-16 lg:px-gutter-lg">
+      <div className="mx-auto max-w-page px-gutter lg:px-gutter-lg">
         <EmptyState
-          icon={failure ? Clock : TicketX}
           tone={failure ? 'danger' : 'neutral'}
           title={failure?.title ?? 'No seats held'}
           description={
             failure?.description ?? 'Pick your seats on the map and they are held for five minutes.'
           }
           action={
-            <Button asChild variant="gradient" size="sm">
+            <Button asChild variant="solid" size="sm">
               <Link to={`/events/${eventId}/seats`}>Back to the seat map</Link>
             </Button>
           }
@@ -154,113 +147,100 @@ export default function Checkout() {
   }
 
   return (
-    <div className="mx-auto max-w-page px-gutter py-8 lg:px-gutter-lg">
+    <div className="mx-auto max-w-page px-gutter pb-24 pt-8 lg:px-gutter-lg">
       <Link
         to={`/events/${eventId}/seats`}
-        className="mb-4 inline-flex items-center gap-1.5 rounded-md text-sm text-muted hover:text-foreground"
+        className="inline-flex items-center gap-2 rounded-sm text-sm text-muted transition-colors duration-[var(--dur-fast)] hover:text-foreground"
       >
-        <ArrowLeft className="size-4" aria-hidden /> Back to seats
+        <ArrowLeft className="size-3.5" aria-hidden /> Back to seats
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-14 mt-8 flex flex-wrap items-end justify-between gap-6 border-b pb-8">
         <h1 className="font-display text-display-sm sm:text-display-md">Checkout</h1>
-        {/* The countdown follows you here: these seats are only yours until it
-            runs out, and hiding that would be the unkindest thing this screen
-            could do. */}
-        <HoldCountdown expiresAt={expiresAt} onExpired={onExpired} className="text-base" />
+        <HoldCountdown expiresAt={expiresAt} onExpired={onExpired} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        <Card className="order-2 lg:order-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="size-4 text-muted" aria-hidden />
-              Payment
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <form
-              className="flex flex-col gap-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void pay();
-              }}
+      <div className="grid gap-16 lg:grid-cols-[1fr_22rem] lg:gap-24">
+        <motion.form
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.52, ease: [0.22, 0.61, 0.36, 1] }}
+          className="order-2 flex max-w-reading flex-col gap-8 lg:order-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void pay();
+          }}
+        >
+          <Label>Payment</Label>
+
+          <div className="flex flex-col gap-3">
+            <FieldLabel htmlFor="name">Name on card</FieldLabel>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <FieldLabel htmlFor="card">Card number</FieldLabel>
+            <Input
+              id="card"
+              inputMode="numeric"
+              value={cardNumber}
+              onChange={(e) => setCardNumber(e.target.value)}
+              required
+            />
+            <p className="text-xs leading-relaxed text-faint">
+              Simulated. Nothing is charged or stored. A number ending 0000 is declined, so you can
+              see that path too.
+            </p>
+          </div>
+
+          {failure ? (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              role="alert"
+              className="text-sm leading-relaxed text-danger"
             >
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="name">Name on card</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
+              <span className="text-foreground">{failure.title}.</span> {failure.description}
+            </motion.p>
+          ) : null}
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="card">Card number</Label>
-                <Input
-                  id="card"
-                  inputMode="numeric"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  required
-                />
-                <p className="text-xs text-muted">
-                  Mock payment — nothing is charged or stored. A number ending 0000 is declined,
-                  so you can see what that looks like.
-                </p>
-              </div>
+          <Button type="submit" variant="solid" size="lg" disabled={pending || !seats}>
+            {pending ? <Spinner /> : null}
+            {pending ? 'Confirming' : `Pay ${formatPrice(total)}`}
+          </Button>
+        </motion.form>
 
-              {failure ? (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  role="alert"
-                  className="flex items-start gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger"
-                >
-                  <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  <span>
-                    <strong className="font-medium">{failure.title}.</strong>{' '}
-                    {failure.description}
+        <aside className="order-1 flex flex-col gap-6 lg:order-2">
+          <Label>Your order</Label>
+          <div>
+            <p className="font-display text-xl font-light">
+              {event?.name ?? <Skeleton className="h-6 w-48" />}
+            </p>
+            {event ? <p className="mt-1.5 text-sm text-muted">{event.venue}</p> : null}
+          </div>
+
+          {seats === null ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (
+            <ul className="flex flex-col border-t">
+              {seats.map((seat) => (
+                <li key={seat.id} className="flex items-center justify-between gap-4 border-b py-3.5 text-sm">
+                  <span className="text-muted-foreground">
+                    {seat.section} · Row {seat.row} · Seat {seat.number}
                   </span>
-                </motion.div>
-              ) : null}
+                  <span data-numeral>{formatPrice(seat.price)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
 
-              <Button type="submit" variant="gradient" size="lg" disabled={pending || !seats}>
-                {pending ? <Spinner /> : <Lock aria-hidden />}
-                {pending ? 'Confirming' : `Pay ${formatPrice(total)}`}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card className="order-1 h-fit lg:order-2">
-          <CardHeader>
-            <CardTitle>{event?.name ?? <Skeleton className="h-6 w-48" />}</CardTitle>
-            {event ? <p className="text-sm text-muted">{event.venue}</p> : null}
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {seats === null ? (
-              <>
-                <Skeleton className="h-5 w-full" />
-                <Skeleton className="h-5 w-2/3" />
-              </>
-            ) : (
-              <ul className="flex flex-col divide-y divide-border">
-                {seats.map((seat) => (
-                  <li key={seat.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span>
-                      {seat.section} · Row {seat.row} · Seat {seat.number}
-                    </span>
-                    <span className="tabular-nums text-muted">{formatPrice(seat.price)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <div className="flex items-center justify-between border-t border-border pt-3">
-              <span className="text-sm text-muted">Total</span>
-              <span className="font-display text-xl font-semibold tabular-nums">
-                {formatPrice(total)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="flex items-baseline justify-between">
+            <Label>Total</Label>
+            <span data-numeral className="font-display text-3xl font-light">
+              {formatPrice(total)}
+            </span>
+          </div>
+        </aside>
       </div>
     </div>
   );

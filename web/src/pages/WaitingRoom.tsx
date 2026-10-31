@@ -1,25 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertCircle, Clock, Hash, PauseCircle, Users, WifiOff } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Label, StatusLabel } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PositionRing } from '@/components/queue/PositionRing';
+import { PositionNumber } from '@/components/queue/PositionNumber';
 import { api, ApiError } from '@/lib/api';
 import { getSocket, subscribeToEvent } from '@/lib/socket';
 import type { EventSummary, QueueState, QueueTick } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { useQueueStore } from '@/store/queue';
 
-/** "about 2 min", "about 40 sec" — a calm estimate, never a false precision. */
+/** "About 2 minutes" — a calm estimate, never a false precision. */
 function formatWait(seconds: number) {
-  if (seconds <= 0) return 'any moment now';
-  if (seconds < 60) return `about ${Math.max(5, Math.ceil(seconds / 5) * 5)} sec`;
+  if (seconds <= 0) return 'Any moment now';
+  if (seconds < 60) return `About ${Math.max(5, Math.ceil(seconds / 5) * 5)} seconds`;
   const minutes = Math.ceil(seconds / 60);
-  return `about ${minutes} min`;
+  return `About ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
 }
 
 export default function WaitingRoom() {
@@ -34,17 +32,16 @@ export default function WaitingRoom() {
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
 
-  // How many people were in front when you joined, so the ring has something to
-  // fill up against. Kept in a ref so a re-render never moves the goalposts.
+  // How many were in front when you joined, so the line has something to fill
+  // against. A ref, so a re-render never moves the goalposts.
   const startAhead = useRef<number | null>(null);
 
-  // Not signed in: one queue spot per account, so we need to know who you are.
   useEffect(() => {
     if (!token) navigate(`/login?next=/events/${eventId}/queue`, { replace: true });
   }, [token, eventId, navigate]);
 
-  // Join on load. The endpoint is idempotent, so this is also what a refresh or
-  // a reconnect does: it returns the number you already had.
+  // Joining is idempotent, so this is also what a refresh does: it hands back
+  // the number you already had.
   useEffect(() => {
     if (!token || !eventId) return;
     let cancelled = false;
@@ -75,7 +72,7 @@ export default function WaitingRoom() {
     };
   }, [token, eventId, setNumber]);
 
-  // Follow the broadcast: one message per event per second, for everybody.
+  // One broadcast a second, for everyone watching this event.
   useEffect(() => {
     if (!eventId) return;
     const socket = getSocket();
@@ -92,8 +89,7 @@ export default function WaitingRoom() {
               joined: tick.joined,
               admitPerSec: tick.admitPerSec,
               status: tick.status,
-              ahead:
-                prev.joinNumber === null ? 0 : Math.max(0, prev.joinNumber - tick.admitted),
+              ahead: prev.joinNumber === null ? 0 : Math.max(0, prev.joinNumber - tick.admitted),
             },
       );
     };
@@ -116,8 +112,7 @@ export default function WaitingRoom() {
 
   const refresh = useCallback(async () => {
     try {
-      const state = await api.get<QueueState>(`/api/events/${eventId}/queue`);
-      setQueue(state);
+      setQueue(await api.get<QueueState>(`/api/events/${eventId}/queue`));
     } catch {
       // The broadcast is the normal path; a failed poll is not worth a message.
     }
@@ -130,34 +125,32 @@ export default function WaitingRoom() {
     return () => clearInterval(id);
   }, [token, eventId, refresh]);
 
-  // Reached the front but no pass yet: ask the server, since the pass is
-  // issued by the worker a moment after the watermark passes your number.
+  // At the front but no pass yet: the worker issues it a moment after the
+  // watermark passes your number, so ask.
   useEffect(() => {
     if (!queue || queue.joinNumber === null || queue.hasPass) return;
     if (queue.ahead === 0) void refresh();
   }, [queue, refresh]);
 
-  // Admitted: show "You're in" for a beat, then go to the seats. This depends
-  // on the boolean alone, not the whole queue object — the object is replaced
-  // every second by the broadcast, and that would cancel and restart the timer
-  // forever without it ever firing.
+  // Admitted. This depends on the boolean alone, not the whole queue object:
+  // the object is replaced every second, which would cancel and restart the
+  // timer forever without it ever firing.
   const hasPass = queue?.hasPass ?? false;
   useEffect(() => {
     if (!hasPass) return;
-    const id = setTimeout(() => navigate(`/events/${eventId}/seats`), 1200);
+    const id = setTimeout(() => navigate(`/events/${eventId}/seats`), 1400);
     return () => clearTimeout(id);
   }, [hasPass, eventId, navigate]);
 
   if (error) {
     return (
-      <div className="mx-auto max-w-page px-gutter py-16 lg:px-gutter-lg">
+      <div className="mx-auto max-w-page px-gutter lg:px-gutter-lg">
         <EmptyState
-          icon={AlertCircle}
           tone="danger"
           title="Could not take your place in line"
           description={error}
           action={
-            <Button asChild variant="secondary" size="sm">
+            <Button asChild variant="subtle" size="sm">
               <Link to="/">Back to events</Link>
             </Button>
           }
@@ -168,10 +161,10 @@ export default function WaitingRoom() {
 
   if (!queue || !event) {
     return (
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-6 px-gutter py-16">
-        <Skeleton className="size-[260px] rounded-full" />
-        <Skeleton className="h-6 w-56" />
-        <Skeleton className="h-4 w-72" />
+      <div className="mx-auto flex min-h-[70svh] max-w-page flex-col items-center justify-center gap-8 px-gutter">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-28 w-56" />
+        <Skeleton className="h-px w-full max-w-sm" />
       </div>
     );
   }
@@ -183,80 +176,75 @@ export default function WaitingRoom() {
   const paused = queue.status === 'PAUSED';
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col items-center px-gutter py-10 text-center sm:py-16">
+    <div className="mx-auto flex min-h-[calc(100svh-var(--spacing-nav,4.5rem))] max-w-page flex-col px-gutter pb-16 lg:px-gutter-lg">
       <AnimatePresence>
         {!online ? (
           <motion.p
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             role="status"
-            className="mb-6 flex items-center gap-2 rounded-full border border-warning/30 bg-warning/10 px-4 py-2 text-sm text-warning"
+            className="border-b py-3 text-center"
           >
-            <WifiOff className="size-4" aria-hidden />
-            Reconnecting — your place is saved
+            <Label tone="warning">Reconnecting — your place is saved</Label>
           </motion.p>
         ) : null}
       </AnimatePresence>
 
-      <Badge variant={paused ? 'warning' : 'live'} className="mb-4">
-        {paused ? (
-          <>
-            <PauseCircle className="size-3" aria-hidden /> Queue paused
-          </>
-        ) : (
-          'In the queue'
-        )}
-      </Badge>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.68, ease: [0.22, 0.61, 0.36, 1] }}
+        className="flex flex-1 flex-col items-center justify-center gap-10 py-16 text-center"
+      >
+        <div className="flex flex-col items-center gap-4">
+          <StatusLabel tone={paused ? 'warning' : 'live'} pulse={!paused}>
+            {paused ? 'Queue paused' : 'In the queue'}
+          </StatusLabel>
+          <h1 className="max-w-3xl font-display text-display-sm sm:text-display-md">{event.name}</h1>
+          <p className="text-sm text-muted">{event.venue}</p>
+        </div>
 
-      <h1 className="font-display text-display-sm sm:text-display-md">{event.name}</h1>
-      <p className="mt-1 text-sm text-muted">{event.venue}</p>
+        <PositionNumber ahead={queue.ahead} progress={progress} admitted={queue.hasPass} />
 
-      <div className="my-10">
-        <PositionRing ahead={queue.ahead} progress={progress} admitted={queue.hasPass} />
-      </div>
+        <p aria-live="polite" className="max-w-reading text-balance text-sm leading-relaxed text-muted-foreground">
+          {queue.hasPass
+            ? 'Opening the seat map. Your seats are held while you choose.'
+            : paused
+              ? 'The sale is paused for a moment. Nobody behind you can get ahead, so you can leave this tab open.'
+              : 'You are through as soon as the people in front of you are done. Refreshing will not cost you your place.'}
+        </p>
+      </motion.div>
 
-      {/* The screen is live and reassuring text matters more than numbers here. */}
-      <p aria-live="polite" className="max-w-sm text-balance text-muted">
-        {queue.hasPass
-          ? 'Your turn. Opening the seat map — your seats are held while you choose.'
-          : paused
-            ? 'The sale is paused for a moment. Nobody behind you can get ahead, so you can leave this tab open.'
-            : 'You are through as soon as the people in front of you are done. Keep this tab open — refreshing will not cost you your place.'}
-      </p>
-
-      <div className="mt-8 grid w-full gap-3 sm:grid-cols-3">
-        <Stat icon={Hash} label="Your number" value={joinNumber.toLocaleString()} />
+      {/* The three numbers, on one rule. No tiles. */}
+      <dl className="grid grid-cols-3 border-t">
+        <Stat label="Your number" value={joinNumber.toLocaleString()} />
         <Stat
-          icon={Clock}
           label="Estimated wait"
-          value={queue.hasPass ? 'none' : paused ? 'paused' : formatWait(waitSeconds)}
+          value={queue.hasPass ? 'None' : paused ? 'Paused' : formatWait(waitSeconds)}
+          className="border-l"
         />
-        <Stat icon={Users} label="In line" value={Math.max(0, queue.joined - queue.admitted).toLocaleString()} />
-      </div>
+        <Stat
+          label="In line"
+          value={Math.max(0, queue.joined - queue.admitted).toLocaleString()}
+          className="border-l"
+        />
+      </dl>
 
-      <p className="mt-6 text-xs text-muted">
-        {queue.admitPerSec.toLocaleString()} people are let in every second, in the order they
-        joined.
+      <p className="mt-6 text-center text-xs text-faint">
+        {queue.admitPerSec.toLocaleString()} people are let in every second, in the order they joined.
       </p>
     </div>
   );
 }
 
-function Stat({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof Clock;
-  label: string;
-  value: string;
-}) {
+function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
-    <Card className="flex flex-col items-center gap-1 p-4">
-      <Icon className="size-4 text-muted" aria-hidden />
-      <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
-      <dd className="font-display text-lg font-semibold tabular-nums">{value}</dd>
-    </Card>
+    <div className={`flex flex-col items-center gap-3 py-7 ${className ?? ''}`}>
+      <dt className="label">{label}</dt>
+      <dd data-numeral className="font-display text-xl font-light sm:text-2xl">
+        {value}
+      </dd>
+    </div>
   );
 }

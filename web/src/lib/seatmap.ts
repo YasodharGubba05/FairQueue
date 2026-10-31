@@ -87,7 +87,9 @@ export function tierForPrice(tiers: PriceTier[], price: number): 1 | 2 | 3 | 4 {
 
 /** The fill a seat should have, given what has happened to it. */
 export function seatFill(status: SeatStatus, selected: boolean, tier: number): string {
-  if (selected) return 'hsl(var(--accent))';
+  // Your own seats are the foreground colour: in a monochrome interface, plain
+  // white is the loudest a thing can be, and it cannot clash with a price tier.
+  if (selected) return 'hsl(var(--foreground))';
   if (status === 'sold') return 'hsl(var(--seat-sold))';
   if (status === 'held') return 'hsl(var(--seat-held))';
   return `hsl(var(--tier-${tier}))`;

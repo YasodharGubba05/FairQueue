@@ -1,40 +1,58 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Activity, LogOut, Menu, Settings, Ticket, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/store/auth';
 import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
-type NavItem = { to: string; label: string; icon: typeof Ticket; adminOnly?: boolean };
+type NavItem = { to: string; label: string; adminOnly?: boolean };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Events', icon: Ticket },
-  { to: '/mission-control', label: 'Mission Control', icon: Activity },
-  { to: '/admin', label: 'Admin', icon: Settings, adminOnly: true },
+  { to: '/', label: 'Events' },
+  { to: '/mission-control', label: 'Mission Control' },
+  { to: '/admin', label: 'Admin', adminOnly: true },
 ];
 
+/**
+ * The nav is transparent and borderless at the top of a page and only grows a
+ * hairline once you scroll, so a full-height hero opens with nothing across it.
+ */
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
   const location = useLocation();
 
-  // Close the mobile menu whenever the route changes.
   useEffect(() => setMobileOpen(false), [location.pathname]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   const items = NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === 'ADMIN');
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-nav max-w-page items-center gap-3 px-gutter lg:px-gutter-lg">
-        <Link to="/" className="rounded-md">
+    <header
+      className={cn(
+        'sticky top-0 z-40 transition-colors duration-[var(--dur)]',
+        // Nearly opaque rather than a light wash: at 80% the page bled through
+        // the blur and the nav read as a smudge over the content.
+        scrolled ? 'border-b bg-background/95 backdrop-blur-xl' : 'bg-transparent',
+      )}
+    >
+      <div className="mx-auto flex h-nav max-w-page items-center gap-10 px-gutter lg:px-gutter-lg">
+        <Link to="/" className="rounded-sm">
           <Logo />
         </Link>
 
-        <nav aria-label="Main" className="ml-6 hidden items-center gap-1 md:flex">
+        <nav aria-label="Main" className="hidden items-center gap-8 md:flex">
           {items.map((item) => (
             <NavLink
               key={item.to}
@@ -42,8 +60,8 @@ export function Navbar() {
               end={item.to === '/'}
               className={({ isActive }) =>
                 cn(
-                  'rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  isActive ? 'bg-surface-raised text-foreground' : 'text-muted hover:text-foreground',
+                  'text-sm transition-colors duration-[var(--dur-fast)]',
+                  isActive ? 'text-foreground' : 'text-muted hover:text-foreground',
                 )
               }
             >
@@ -52,19 +70,19 @@ export function Navbar() {
           ))}
         </nav>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
           {user ? (
             <>
-              <span className="hidden max-w-[14ch] truncate text-sm text-muted sm:inline">
+              <span className="hidden max-w-[16ch] truncate text-sm text-muted sm:inline">
                 {user.email}
               </span>
-              <Button variant="ghost" size="icon" onClick={clear} aria-label="Sign out">
-                <LogOut aria-hidden />
+              <Button variant="ghost" size="sm" onClick={clear}>
+                Sign out
               </Button>
             </>
           ) : (
-            <Button asChild size="sm" variant="gradient" className="hidden sm:inline-flex">
+            <Button asChild size="sm" variant="subtle" className="hidden sm:inline-flex">
               <Link to="/login">Sign in</Link>
             </Button>
           )}
@@ -90,10 +108,10 @@ export function Navbar() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="overflow-hidden border-t border-border bg-background md:hidden"
+            transition={{ duration: 0.32, ease: [0.22, 0.61, 0.36, 1] }}
+            className="overflow-hidden border-t bg-background md:hidden"
           >
-            <div className="flex flex-col gap-1 p-gutter">
+            <div className="flex flex-col px-gutter py-2">
               {items.map((item) => (
                 <NavLink
                   key={item.to}
@@ -101,17 +119,16 @@ export function Navbar() {
                   end={item.to === '/'}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm font-medium',
-                      isActive ? 'bg-surface-raised text-foreground' : 'text-muted',
+                      'border-b py-4 font-display text-xl font-light last:border-b-0',
+                      isActive ? 'text-foreground' : 'text-muted',
                     )
                   }
                 >
-                  <item.icon className="size-4" aria-hidden />
                   {item.label}
                 </NavLink>
               ))}
               {!user ? (
-                <Button asChild variant="gradient" className="mt-1">
+                <Button asChild variant="solid" className="my-4">
                   <Link to="/login">Sign in</Link>
                 </Button>
               ) : null}

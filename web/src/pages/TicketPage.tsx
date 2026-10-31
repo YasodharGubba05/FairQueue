@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
-import { CalendarDays, Check, MapPin, TicketX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Confetti } from '@/components/ui/confetti';
+import { SuccessRule } from '@/components/ui/confetti';
 import { api } from '@/lib/api';
 import type { OrderDetail } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
@@ -34,14 +34,13 @@ export default function TicketPage() {
 
   if (missing) {
     return (
-      <div className="mx-auto max-w-page px-gutter py-16 lg:px-gutter-lg">
+      <div className="mx-auto max-w-page px-gutter lg:px-gutter-lg">
         <EmptyState
-          icon={TicketX}
           tone="danger"
           title="Ticket not found"
           description="That order does not exist, or it is not yours."
           action={
-            <Button asChild variant="secondary" size="sm">
+            <Button asChild variant="subtle" size="sm">
               <Link to="/">Back to events</Link>
             </Button>
           }
@@ -52,89 +51,78 @@ export default function TicketPage() {
 
   if (!order) {
     return (
-      <div className="mx-auto max-w-md px-gutter py-12">
-        <Skeleton className="h-[460px] w-full rounded-xl" />
+      <div className="mx-auto flex min-h-[70svh] max-w-reading flex-col justify-center gap-8 px-gutter">
+        <Skeleton className="h-3 w-24" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-24 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="relative mx-auto max-w-md px-gutter py-10 sm:py-14">
-      <Confetti />
+    <div className="relative mx-auto flex min-h-[calc(100svh-var(--spacing-nav,4.5rem))] max-w-reading flex-col justify-center px-gutter py-20">
+      <SuccessRule />
 
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="flex flex-col items-center"
+        transition={{ duration: 0.68, ease: [0.22, 0.61, 0.36, 1] }}
+        className="flex flex-col gap-10"
       >
-        <span className="mb-4 flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1 text-sm text-success">
-          <Check className="size-4" aria-hidden />
-          {order.tickets.length === 1 ? 'Seat is yours' : 'Seats are yours'}
-        </span>
+        <div className="flex flex-col gap-4">
+          <Label tone="live">
+            {order.tickets.length === 1 ? 'Seat is yours' : 'Seats are yours'}
+          </Label>
+          <h1 className="font-display text-display-sm">{order.event.name}</h1>
+          <p className="text-sm text-muted-foreground">
+            {order.event.venue} · {formatDate(order.event.startsAt)} ·{' '}
+            {formatTime(order.event.startsAt)}
+          </p>
+        </div>
 
-        {/* Ticket stub: one card, notched in the middle, torn edge at the fold. */}
-        <div className="w-full overflow-hidden rounded-xl border border-border bg-surface shadow-raised">
-          <div className="bg-gradient-to-br from-accent to-highlight px-5 py-6 text-accent-foreground">
-            <p className="text-xs uppercase tracking-[0.2em] opacity-80">Admit {order.tickets.length}</p>
-            <h1 className="mt-1 font-display text-2xl font-semibold leading-tight">
-              {order.event.name}
-            </h1>
-          </div>
+        <ul className="flex flex-col border-t">
+          {order.tickets.map((ticket) => (
+            <li
+              key={ticket.id}
+              className="flex items-center justify-between gap-4 border-b py-4 text-sm"
+            >
+              <span>
+                {ticket.seat.section} · Row {ticket.seat.row} · Seat {ticket.seat.number}
+              </span>
+              <span data-numeral className="text-muted-foreground">
+                {formatPrice(ticket.seat.price)}
+              </span>
+            </li>
+          ))}
+        </ul>
 
-          <div className="flex flex-col gap-3 px-5 py-5">
-            <p className="flex items-center gap-2 text-sm text-muted">
-              <MapPin className="size-4 shrink-0" aria-hidden />
-              {order.event.venue}
-            </p>
-            <p className="flex items-center gap-2 text-sm text-muted">
-              <CalendarDays className="size-4 shrink-0" aria-hidden />
-              {formatDate(order.event.startsAt)} · {formatTime(order.event.startsAt)}
-            </p>
-
-            <ul className="mt-1 flex flex-col divide-y divide-border rounded-lg border border-border">
-              {order.tickets.map((ticket) => (
-                <li
-                  key={ticket.id}
-                  className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium">
-                    {ticket.seat.section} · Row {ticket.seat.row} · Seat {ticket.seat.number}
-                  </span>
-                  <span className="tabular-nums text-muted">{formatPrice(ticket.seat.price)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* The tear line, with the notches a real stub has. */}
-          <div className="relative border-t border-dashed border-border">
-            <span className="absolute -left-2.5 -top-2.5 size-5 rounded-full bg-background" aria-hidden />
-            <span className="absolute -right-2.5 -top-2.5 size-5 rounded-full bg-background" aria-hidden />
-          </div>
-
-          <div className="flex items-center gap-4 px-5 py-5">
-            <div className="rounded-lg bg-white p-2">
-              <QRCodeSVG value={`fairqueue:order:${order.id}`} size={92} level="M" />
+        {/* The one place the design turns light: the code has to scan. */}
+        <div className="flex items-end justify-between gap-8">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <Label>Order</Label>
+              <span className="font-mono text-xs text-muted-foreground">{order.id}</span>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs uppercase tracking-wide text-muted">Order</p>
-              <p className="truncate font-mono text-xs">{order.id}</p>
-              <p className="mt-2 text-xs uppercase tracking-wide text-muted">Total paid</p>
-              <p className="font-display text-lg font-semibold tabular-nums">
+            <div className="flex flex-col gap-2">
+              <Label>Total paid</Label>
+              <span data-numeral className="font-display text-2xl font-light">
                 {formatPrice(order.total)}
-              </p>
+              </span>
             </div>
+          </div>
+          <div className="bg-white p-3">
+            <QRCodeSVG value={`fairqueue:order:${order.id}`} size={96} level="M" />
           </div>
         </div>
 
-        <p className="mt-5 text-center text-sm text-muted">
-          Show this code at the door. It is also in your order history.
-        </p>
-
-        <Button asChild variant="secondary" className="mt-5">
-          <Link to="/">Back to events</Link>
-        </Button>
+        <div className="flex flex-col gap-6 border-t pt-8">
+          <p className="text-xs text-faint">
+            Show this code at the door. Payment was simulated and no real ticket was issued.
+          </p>
+          <Button asChild variant="subtle" size="md" className="self-start">
+            <Link to="/">Back to events</Link>
+          </Button>
+        </div>
       </motion.div>
     </div>
   );
