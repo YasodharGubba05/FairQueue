@@ -68,7 +68,10 @@ describe('Phase P1 — Naive Mode & Core Endpoints', () => {
 
       expect(res.status).toBe(200);
       const data = await res.json();
-      expect(data.token).toBeDefined();
+      // Renamed from `token` when refresh tokens arrived: the body now carries
+      // the short-lived access token, and the refresh token is in a cookie.
+      expect(data.accessToken).toBeDefined();
+      expect(data.expiresIn).toBeGreaterThan(0);
       expect(data.user).toMatchObject({
         email: 'buyer0001@fairqueue.dev',
         role: 'BUYER',

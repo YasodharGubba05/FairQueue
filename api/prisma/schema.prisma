@@ -44,13 +44,70 @@ enum EventSourceKind {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(BUYER)
-  createdAt    DateTime @default(now())
+  id    String @id @default(cuid())
+  email String @unique
+  /// Null for an account that only ever signs in through a provider. A user
+  /// with no password must never be able to pass password verification.
+  passwordHash String?
+  /// Set only when a provider asserts the address is verified, or when the
+  /// account was created with a password we issued.
+  emailVerified Boolean @default(false)
+  /// Never taken from a provider. OAuth registrations are always BUYER, and
+  /// this is only ever raised deliberately, server side.
+  role      Role     @default(BUYER)
+  createdAt DateTime @default(now())
 
-  orders Order[]
+  orders        Order[]
+  identities    OAuthIdentity[]
+  refreshTokens RefreshToken[]
+}
+
+/// A provider account linked to a user.
+///
+/// The subject is the provider's own immutable id for the person, not their
+/// email: an email can be reassigned by a workspace admin, a subject cannot.
+model OAuthIdentity {
+  id        String   @id @default(cuid())
+  userId    String
+  provider  String
+  subject   String
+  /// What the provider said at link time, kept for support rather than auth.
+  email     String
+  createdAt DateTime @default(now())
+  lastLogin DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// One account per provider subject, enforced by the database rather than
+  /// by a check that could race.
+  @@unique([provider, subject])
+  @@index([userId])
+}
+
+/// One issued refresh token.
+///
+/// Only a hash is stored, so a database leak does not hand over live sessions.
+/// Tokens are rotated on every use and chained by `family`: presenting a token
+/// that has already been used means it leaked, and the whole family dies.
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  /// SHA-256 of the token. The token itself exists only in the user's cookie.
+  tokenHash String   @unique
+  /// All descendants of one login share this, so reuse can revoke the lot.
+  family    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  /// Set when rotated away or revoked. A token with this set is spent.
+  revokedAt DateTime?
+  /// Why it was revoked, so an incident can be read back later.
+  revokedReason String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@index([expiresAt])
 }
 
 model Event {

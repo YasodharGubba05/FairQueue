@@ -36,6 +36,22 @@ const schema = z.object({
   // Off only for the suites that test the locking guarantees, where thousands
   // of requests arrive from one address on purpose and the limiter is not what
   // is under test. Never off in a running deployment.
+  // Pinned into every access token, so one minted elsewhere cannot be replayed.
+  TOKEN_ISSUER: z.string().default('fairqueue'),
+  TOKEN_AUDIENCE: z.string().default('fairqueue-api'),
+  // Dropped on plain-http local development, where a Secure cookie would be
+  // refused by the browser and nothing would work.
+  COOKIE_SECURE: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  // Google sign-in. Optional: with no credentials the button is hidden and
+  // password login carries on exactly as before.
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().default('http://localhost:4000/api/auth/google/callback'),
+  // Where the browser lands once sign-in finishes.
+  WEB_ORIGIN: z.string().default('http://localhost:5173'),
   RATE_LIMIT_ENABLED: z
     .enum(['true', 'false'])
     .default('true')

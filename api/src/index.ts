@@ -23,7 +23,9 @@ import { startEventSync, stopEventSync } from './events/scheduler';
 
 export const app = express();
 app.set('trust proxy', true);
-app.use(cors());
+// Credentials are sent as cookies, so the browser's origin has to be named
+// explicitly — a wildcard origin cannot carry them.
+app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '64kb' }));
 
 // Mount routes
