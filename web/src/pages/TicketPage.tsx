@@ -7,9 +7,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SuccessRule } from '@/components/ui/confetti';
+import { TiltCard } from '@/components/ui/tilt-card';
 import { api } from '@/lib/api';
 import type { OrderDetail } from '@/lib/types';
-import { formatDate, formatPrice, formatTime } from '@/lib/utils';
+import { formatDate, formatEventName, formatPrice, formatTime } from '@/lib/utils';
 
 export default function TicketPage() {
   const { orderId = '' } = useParams();
@@ -66,47 +67,67 @@ export default function TicketPage() {
           <Label tone="live">
             {order.tickets.length === 1 ? 'Seat is yours' : 'Seats are yours'}
           </Label>
-          <h1 className="font-display text-display-sm">{order.event.name}</h1>
+          <h1 className="font-display text-display-sm">{formatEventName(order.event.name)}</h1>
           <p className="text-sm text-muted-foreground">
             {order.event.venue} · {formatDate(order.event.startsAt)} ·{' '}
             {formatTime(order.event.startsAt)}
           </p>
         </div>
 
-        <ul className="flex flex-col border-t">
-          {order.tickets.map((ticket) => (
-            <li
-              key={ticket.id}
-              className="flex items-center justify-between gap-4 border-b py-4 text-sm"
-            >
-              <span>
-                {ticket.seat.section} · Row {ticket.seat.row} · Seat {ticket.seat.number}
-              </span>
-              <span data-numeral className="text-muted-foreground">
-                {formatPrice(ticket.seat.price)}
-              </span>
-            </li>
-          ))}
-        </ul>
+        {/* The one object on the site that is genuinely a thing you hold, so
+            it is the one that gets the full treatment: lifted off the page,
+            tilting as you look at it, lit by the cursor. */}
+        <TiltCard className="rounded">
+          <div className="flex flex-col gap-6 p-7">
+            <ul className="flex flex-col">
+              {order.tickets.map((ticket) => (
+                <li
+                  key={ticket.id}
+                  className="flex items-center justify-between gap-4 border-b py-3.5 text-sm last:border-b-0"
+                >
+                  <span>
+                    {ticket.seat.section} · Row {ticket.seat.row} · Seat {ticket.seat.number}
+                  </span>
+                  <span data-numeral className="text-muted-foreground">
+                    {formatPrice(ticket.seat.price)}
+                  </span>
+                </li>
+              ))}
+            </ul>
 
-        {/* The one place the design turns light: the code has to scan. */}
-        <div className="flex items-end justify-between gap-8">
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <Label>Order</Label>
-              <span className="font-mono text-xs text-muted-foreground">{order.id}</span>
+            {/* The tear line, with the notches a real stub has. They are cut
+                out of the card by matching the page behind it. */}
+            <div className="relative border-t border-dashed">
+              <span
+                className="absolute -left-10 -top-2.5 size-5 rounded-pill bg-background"
+                aria-hidden
+              />
+              <span
+                className="absolute -right-10 -top-2.5 size-5 rounded-pill bg-background"
+                aria-hidden
+              />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Total paid</Label>
-              <span data-numeral className="font-display text-2xl font-light">
-                {formatPrice(order.total)}
-              </span>
+
+            <div className="flex items-end justify-between gap-8">
+              <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-2">
+                  <Label>Order</Label>
+                  <span className="font-mono text-xs text-muted-foreground">{order.id}</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label>Total paid</Label>
+                  <span data-numeral className="font-display text-2xl font-light">
+                    {formatPrice(order.total)}
+                  </span>
+                </div>
+              </div>
+              {/* The one place the design turns light: the code has to scan. */}
+              <div className="rounded-sm bg-white p-3 shadow-lift">
+                <QRCodeSVG value={`fairqueue:order:${order.id}`} size={96} level="M" />
+              </div>
             </div>
           </div>
-          <div className="bg-white p-3">
-            <QRCodeSVG value={`fairqueue:order:${order.id}`} size={96} level="M" />
-          </div>
-        </div>
+        </TiltCard>
 
         <div className="flex flex-col gap-6 border-t pt-8">
           <p className="text-xs text-faint">

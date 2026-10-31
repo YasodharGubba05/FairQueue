@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Label, StatusLabel } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PositionNumber } from '@/components/queue/PositionNumber';
+import { formatEventName } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { getSocket, subscribeToEvent } from '@/lib/socket';
 import type { EventSummary, QueueState, QueueTick } from '@/lib/types';
@@ -195,7 +196,7 @@ export default function WaitingRoom() {
           <StatusLabel tone={paused ? 'warning' : 'live'} pulse={!paused}>
             {paused ? 'Queue paused' : 'In the queue'}
           </StatusLabel>
-          <h1 className="max-w-3xl font-display text-display-sm sm:text-display-md">{event.name}</h1>
+          <h1 className="max-w-3xl font-display text-display-sm sm:text-display-md">{formatEventName(event.name)}</h1>
           <p className="text-sm text-muted">{event.venue}</p>
         </div>
 

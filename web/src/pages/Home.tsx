@@ -10,7 +10,7 @@ import { EventFilters, EMPTY_FILTERS, type Filters } from '@/components/events/E
 import { ProvenanceLabel, SimulatedInventoryNote } from '@/components/events/Provenance';
 import { api } from '@/lib/api';
 import type { EventFacets, EventSummary, EventsResponse } from '@/lib/types';
-import { formatDate, formatPrice } from '@/lib/utils';
+import { formatDate, formatEventName, formatPrice } from '@/lib/utils';
 
 const STATUS: Record<
   EventSummary['status'],
@@ -170,7 +170,7 @@ function Hero({ event }: { event: EventSummary }) {
         </div>
 
         <h1 className="max-w-5xl font-display text-display-md sm:text-display-lg lg:text-display-xl">
-          {event.name}
+          {formatEventName(event.name)}
         </h1>
 
         <p className="text-base text-muted-foreground">
@@ -222,7 +222,7 @@ function EventCard({ event, index }: { event: EventSummary; index: number }) {
         </span>
       </div>
 
-      <h2 className="font-display text-xl font-light leading-snug tracking-tight">{event.name}</h2>
+      <h2 className="font-display text-xl font-light leading-snug tracking-tight">{formatEventName(event.name)}</h2>
 
       <div className="mt-auto flex flex-col gap-4">
         <p className="text-sm text-muted">

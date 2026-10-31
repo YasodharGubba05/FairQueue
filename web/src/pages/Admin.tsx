@@ -9,7 +9,7 @@ import { api, ApiError } from '@/lib/api';
 import type { AdminEvent } from '@/lib/types';
 import { useAuthStore } from '@/store/auth';
 import { toast } from '@/store/toast';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatEventName } from '@/lib/utils';
 
 const TONE: Record<AdminEvent['status'], 'live' | 'warning' | 'danger' | 'muted'> = {
   LIVE: 'live',
@@ -51,7 +51,7 @@ export default function Admin() {
     if (status === 'CANCELLED') {
       // Cancelling is final, so it asks first.
       const ok = window.confirm(
-        `Cancel "${event.name}"?\n\nIt will disappear from every public listing and cannot be reopened. Tickets already sold are kept.`,
+        `Cancel "${formatEventName(event.name)}"?\n\nIt will disappear from every public listing and cannot be reopened. Tickets already sold are kept.`,
       );
       if (!ok) return;
     }
@@ -115,7 +115,7 @@ export default function Admin() {
                 }`}
               >
                 <div className="md:col-span-5">
-                  <p className="font-display text-xl font-light">{event.name}</p>
+                  <p className="font-display text-xl font-light">{formatEventName(event.name)}</p>
                   <p className="mt-1.5 text-sm text-muted">
                     {event.venue}
                     {event.city ? ` · ${event.city}` : ''}

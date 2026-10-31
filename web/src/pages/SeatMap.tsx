@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SeatMapCanvas } from '@/components/seatmap/SeatMapCanvas';
 import { SelectionTray } from '@/components/seatmap/SelectionTray';
+import { formatEventName } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { getSocket, subscribeToEvent } from '@/lib/socket';
 import type { EventSummary, HoldState, Seat, SeatStatus, SeatsUpdate } from '@/lib/types';
@@ -197,7 +198,7 @@ export default function SeatMap() {
             {online ? 'Live' : 'Reconnecting'}
           </StatusLabel>
           <h1 className="font-display text-display-sm sm:text-display-md">
-            {event?.name ?? <Skeleton className="h-10 w-80" />}
+            {formatEventName(event?.name ?? "") || <Skeleton className="h-10 w-80" />}
           </h1>
           {event ? <p className="text-sm text-muted">{event.venue}</p> : null}
         </div>

@@ -11,7 +11,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { HoldCountdown } from '@/components/seatmap/HoldCountdown';
 import { api, ApiError } from '@/lib/api';
 import type { EventSummary, HoldState, Seat } from '@/lib/types';
-import { formatPrice } from '@/lib/utils';
+import { formatEventName, formatPrice } from '@/lib/utils';
 
 /** What went wrong, and what the buyer can actually do about it. */
 type Failure = { title: string; description: string; action: 'back-to-seats' | 'retry' };
@@ -208,7 +208,7 @@ export default function Checkout() {
           <Label>Your order</Label>
           <div>
             <p className="font-display text-xl font-light">
-              {event?.name ?? <Skeleton className="h-6 w-48" />}
+              {formatEventName(event?.name ?? "") || <Skeleton className="h-6 w-48" />}
             </p>
             {event ? <p className="mt-1.5 text-sm text-muted">{event.venue}</p> : null}
           </div>
