@@ -7,7 +7,8 @@ import { env, isNaive } from './env';
 import { prisma } from './db';
 import { redis, createPubSubPair } from './redis';
 import { keys, TTL } from './keys';
-import { setIo, eventRoom } from './io';
+import { setIo, eventRoom, userRoom } from './io';
+import { verifyAccessToken } from './auth/tokens';
 import { healthRouter } from './routes/health';
 import { authRouter } from './routes/auth';
 import { eventsRouter } from './routes/events';
@@ -18,6 +19,7 @@ import { holdsRouter } from './routes/holds';
 import { statsRouter } from './routes/stats';
 import { adminRouter } from './routes/admin';
 import { walletRouter } from './routes/wallet';
+import { radarRouter } from './routes/radar';
 import { startBroadcastBridge } from './broadcast';
 import { stopSeatUpdates } from './seatUpdates';
 import { startEventSync, stopEventSync } from './events/scheduler';
@@ -39,6 +41,7 @@ app.use(holdsRouter);
 app.use(statsRouter);
 app.use(adminRouter);
 app.use(walletRouter);
+app.use(radarRouter);
 app.use(checkoutRouter);
 
 /**
@@ -71,6 +74,39 @@ io.on('connection', (socket) => {
   });
   socket.on('event:unsubscribe', (eventId: unknown) => {
     if (typeof eventId === 'string' && eventId.length > 0) socket.leave(eventRoom(eventId));
+  });
+
+  /**
+   * Join your own notification room.
+   *
+   * Event rooms are public — what is on sale is not a secret — but a
+   * notification room is one person's, so this takes the same access token
+   * the HTTP API takes and verifies it the same way. Without that, any socket
+   * could ask for anyone's room by guessing a user id.
+   */
+  socket.on('user:subscribe', (token: unknown, ack?: (ok: boolean) => void) => {
+    if (typeof token !== 'string' || token.length === 0) {
+      ack?.(false);
+      return;
+    }
+    try {
+      const claims = verifyAccessToken(token);
+      // Leave any room joined under a previous identity, so signing out and
+      // in as somebody else does not keep delivering the old person's news.
+      for (const room of socket.rooms) {
+        if (room.startsWith('user:')) socket.leave(room);
+      }
+      socket.join(userRoom(claims.id));
+      ack?.(true);
+    } catch {
+      ack?.(false);
+    }
+  });
+
+  socket.on('user:unsubscribe', () => {
+    for (const room of socket.rooms) {
+      if (room.startsWith('user:')) socket.leave(room);
+    }
   });
 });
 

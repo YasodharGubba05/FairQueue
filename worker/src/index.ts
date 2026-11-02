@@ -8,6 +8,7 @@ import { EXPIRE_HOLDS_LUA } from './lua/expire';
 import { buildStats, nextTick, prunePods } from './stats';
 import { completeFinishedEvents } from './lifecycle';
 import { buildDemand } from './demand';
+import { announceOpeningSoon, announceReturnedInventory, openDueSales } from './radar';
 
 /**
  * The worker is the one process that is allowed to move the line forward.
@@ -18,6 +19,7 @@ import { buildDemand } from './demand';
  *   - broadcasts one Mission Control reading per event per second
  *   - retires events once they are over
  *   - broadcasts how fast each section of the venue is being taken
+ *   - opens sales whose time has come, and tells their followers
  *
  * Only one replica runs, so there is never a second process handing out passes.
  */
@@ -119,6 +121,12 @@ async function tick() {
   await prunePods(redis);
   await completeFinishedEvents(prisma);
 
+  // Nothing else in the project reads saleOpensAt, so without this an event
+  // sits at UPCOMING forever and "notify me when the sale starts" is a promise
+  // about something that never happens.
+  await openDueSales(prisma, redis);
+  await announceOpeningSoon(prisma, redis);
+
   const events = await loadActiveEvents();
   if (events.length === 0) return;
 
@@ -132,6 +140,10 @@ async function tick() {
 
     // How fast each section is going. Counts are left to the browsers, which
     // already hold the live seat list; only the rate has to be server-side.
+    // Seats coming back on an event that had none left is the thing a
+    // follower who missed out is actually waiting for.
+    await announceReturnedInventory(prisma, redis, event);
+
     const demand = await buildDemand(redis, prisma, event.id);
     if (demand.sections.length > 0) {
       await redis.publish(

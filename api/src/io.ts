@@ -15,3 +15,12 @@ export function getIo(): Server | null {
 }
 
 export const eventRoom = (eventId: string) => `event:${eventId}`;
+
+/**
+ * A room of one.
+ *
+ * Notifications go here rather than to an event room, because who follows what
+ * is nobody else's business. A socket only joins its own after proving who it
+ * is — see the connection handler in index.ts.
+ */
+export const userRoom = (userId: string) => `user:${userId}`;

@@ -33,6 +33,16 @@ enum EventStatus {
 /// This is about the *event*, never the tickets. FairQueue's seat inventory,
 /// prices, payments and tickets are simulated for every event without
 /// exception — including the ones whose details are genuine.
+/// Why someone was notified.
+enum NotificationKind {
+  /// The sale for an event they follow has just opened.
+  SALE_OPENED
+  /// Seats came back on sale for an event that had none left.
+  INVENTORY_RETURNED
+  /// The sale for an event they follow is about to open.
+  SALE_OPENING_SOON
+}
+
 enum EventSourceKind {
   /// Invented for demos and benchmarks. Not a real event.
   SEEDED
@@ -63,6 +73,49 @@ model User {
   tickets       Ticket[]         @relation("TicketOwner")
   transfersOut  TicketTransfer[] @relation("TransferFrom")
   transfersIn   TicketTransfer[] @relation("TransferTo")
+  follows       EventFollow[]
+  notifications Notification[]
+}
+
+/// Someone watching an event.
+///
+/// Deliberately its own table rather than a column anywhere: following is a
+/// many-to-many fact, and the unique constraint is what makes following twice
+/// impossible in the database rather than only in the handler.
+model EventFollow {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+  /// Whether to tell them shortly before the sale opens, as well as when it does.
+  remindBeforeOpen Boolean @default(true)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+/// Something worth telling one person about.
+///
+/// Persisted rather than only pushed down the socket, because the person who
+/// most needs to hear that a sale opened is the one who was not looking at the
+/// page when it did.
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  eventId   String
+  kind      NotificationKind
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([eventId])
 }
 
 /// A provider account linked to a user.
@@ -147,9 +200,11 @@ model Event {
   // When a sync last refreshed this from its provider.
   lastSyncedAt DateTime?
 
-  seats   Seat[]
-  orders  Order[]
-  tickets Ticket[]
+  seats         Seat[]
+  orders        Order[]
+  tickets       Ticket[]
+  follows       EventFollow[]
+  notifications Notification[]
 
   // One row per provider event. Postgres treats NULLs as distinct, so any
   // number of seeded events coexist while a provider event can only land once

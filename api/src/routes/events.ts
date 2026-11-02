@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../db';
 import { labelFor } from '../events/registry';
 import { publicEventFilter } from '../events/lifecycle';
+import { optionalAuth } from '../middleware/auth';
 
 export const eventsRouter = Router();
 
@@ -84,7 +85,9 @@ const querySchema = z.object({
   source: z.nativeEnum(EventSourceKind).optional(),
 });
 
-eventsRouter.get('/api/events', async (req: Request, res: Response) => {
+// optionalAuth so the listing can mark what the viewer follows, while staying
+// readable to somebody who is not signed in at all.
+eventsRouter.get('/api/events', optionalAuth, async (req: Request, res: Response) => {
   const parsed = querySchema.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: 'Invalid search or filter' });
@@ -138,8 +141,20 @@ eventsRouter.get('/api/events', async (req: Request, res: Response) => {
     }),
   ]);
 
+  // One query for every follow rather than one per event.
+  const followed = req.user
+    ? new Set(
+        (
+          await prisma.eventFollow.findMany({
+            where: { userId: req.user.id, eventId: { in: events.map((e) => e.id) } },
+            select: { eventId: true },
+          })
+        ).map((f) => f.eventId),
+      )
+    : new Set<string>();
+
   res.json({
-    events: events.map(formatEvent),
+    events: events.map((e) => ({ ...formatEvent(e), following: followed.has(e.id) })),
     facets: {
       categories: categories.map((c) => c.category).filter((c): c is string => Boolean(c)),
       cities: cities.map((c) => c.city).filter((c): c is string => Boolean(c)),

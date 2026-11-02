@@ -1,7 +1,7 @@
 import Redis from 'ioredis';
 import { env } from './env';
 import { BROADCAST_CHANNEL } from './keys';
-import { getIo, eventRoom } from './io';
+import { getIo, eventRoom, userRoom } from './io';
 
 /**
  * The worker is the only process that knows how far the line has moved, but the
@@ -23,7 +23,22 @@ export function startBroadcastBridge() {
     const io = getIo();
     if (!io) return;
     try {
-      const msg = JSON.parse(raw) as { type?: string; eventId?: string };
+      const msg = JSON.parse(raw) as {
+        type?: string;
+        eventId?: string;
+        userIds?: string[];
+        notification?: unknown;
+      };
+
+      // Notifications are addressed to people, not to an event, so they are
+      // handled before the eventId check below.
+      if (msg.type === 'notify' && Array.isArray(msg.userIds)) {
+        for (const userId of msg.userIds) {
+          io.to(userRoom(userId)).emit('notification', msg.notification);
+        }
+        return;
+      }
+
       if (!msg.eventId) return;
       if (msg.type === 'queue') io.to(eventRoom(msg.eventId)).emit('queue:tick', msg);
       if (msg.type === 'seats') io.to(eventRoom(msg.eventId)).emit('seats:update', msg);
