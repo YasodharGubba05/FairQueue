@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TiltCard } from '@/components/ui/tilt-card';
 import { EventFilters, EMPTY_FILTERS, type Filters } from '@/components/events/EventFilters';
 import { ProvenanceLabel, SimulatedInventoryNote } from '@/components/events/Provenance';
+import { FollowButton } from '@/components/radar/FollowButton';
 import { api } from '@/lib/api';
 import type { EventFacets, EventSummary, EventsResponse } from '@/lib/types';
 import { formatDate, formatEventName, formatPrice } from '@/lib/utils';
@@ -193,6 +194,13 @@ function Hero({ event }: { event: EventSummary }) {
               {event.status === 'SOLD_OUT' ? 'Sold out' : 'Not open yet'}
             </Button>
           )}
+
+          <FollowButton
+            eventId={event.id}
+            eventName={event.name}
+            following={event.following ?? false}
+            size="md"
+          />
         </div>
 
         <div className="flex flex-col gap-2">
@@ -242,6 +250,12 @@ function EventCard({ event, index }: { event: EventSummary; index: number }) {
             {event.availableSeats.toLocaleString()} left
           </span>
         </div>
+
+        <FollowButton
+          eventId={event.id}
+          eventName={event.name}
+          following={event.following ?? false}
+        />
       </div>
     </div>
   );

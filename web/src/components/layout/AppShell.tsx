@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
+import { RadarListener } from '@/components/radar/RadarListener';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 
@@ -19,6 +20,9 @@ export function AppShell() {
       </main>
       <Footer />
       <Toaster />
+      {/* Keeps the signed-in person's notification room joined. Renders
+          nothing; it only listens. */}
+      <RadarListener />
     </div>
   );
 }

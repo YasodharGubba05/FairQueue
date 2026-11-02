@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/auth';
 import { logout } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
+import { NotificationBell } from '@/components/radar/NotificationBell';
 import { ThemeToggle } from './ThemeToggle';
 
 type NavItem = { to: string; label: string; adminOnly?: boolean; signedInOnly?: boolean };
@@ -75,6 +76,7 @@ export function Navbar() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <NotificationBell />
           <ThemeToggle />
           {user ? (
             <>

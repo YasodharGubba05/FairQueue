@@ -27,6 +27,8 @@ export type EventSummary = {
   category: string | null;
   city: string | null;
   country: string | null;
+  /** Whether the signed-in viewer follows this. Absent when signed out. */
+  following?: boolean;
 };
 
 export type EventFacets = { categories: string[]; cities: string[] };
@@ -178,5 +180,40 @@ export type SectionDemandTick = {
   eventId: string;
   sections: { section: string; claimRate: number; claimed: number }[];
   totalClaimRate: number;
+  at: number;
+};
+
+export type NotificationKind = 'SALE_OPENED' | 'INVENTORY_RETURNED' | 'SALE_OPENING_SOON';
+
+export type RadarEvent = {
+  id: string;
+  name: string;
+  venue: string;
+  city: string | null;
+  startsAt: string;
+  endsAt: string;
+  saleOpensAt: string;
+  status: EventSummary['status'];
+  verified: boolean;
+  sourceLabel: string;
+  sourceName: string | null;
+  sourceUrl: string | null;
+};
+
+export type AppNotification = {
+  id: string;
+  kind: NotificationKind;
+  createdAt: string;
+  readAt: string | null;
+  event: RadarEvent;
+};
+
+export type NotificationsResponse = { unread: number; notifications: AppNotification[] };
+
+/** Pushed down the socket the moment something happens. */
+export type NotificationPush = {
+  kind: NotificationKind;
+  eventId: string;
+  event: RadarEvent;
   at: number;
 };

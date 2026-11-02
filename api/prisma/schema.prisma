@@ -10,6 +10,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// A note on time, because it has already caught one person out.
+///
+/// Every DateTime here is `timestamp without time zone`, and Prisma reads and
+/// writes those as UTC. So the whole application is consistently UTC, and
+/// comparisons like `endsAt <= now()` behave.
+///
+/// What does NOT behave is setting one of these from a psql session, where
+/// `NOW()` is local wall clock. In a +05:30 session that writes a value five
+/// and a half hours ahead of what the application will read, and a sale set to
+/// open "in 40 seconds" that way silently never opens. Set timestamps through
+/// Prisma, or write `NOW() AT TIME ZONE 'UTC'`.
+
 enum Role {
   BUYER
   ADMIN
