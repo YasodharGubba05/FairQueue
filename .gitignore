@@ -9,5 +9,8 @@ coverage/
 web/dist/
 api/dist/
 worker/dist/
+# k6's own per-run summaries; the orchestrator folds them into the real
+# result file alongside the database verdict.
+bench/results/*.k6.json
 *.tsbuildinfo
 .claude/

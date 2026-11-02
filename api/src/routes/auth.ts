@@ -24,7 +24,15 @@ export const authRouter = Router();
  * that get throttled hardest. Ten attempts per account per ten seconds is far
  * more than a person types and far less than a script wants.
  */
-const loginLimit = rateLimit('login', { perUser: 10 });
+const loginLimit = rateLimit('login', {
+  perUser: 10,
+  // Keyed on the address being attempted rather than on a shared anonymous
+  // bucket, so hammering one account cannot stop anybody else signing in.
+  identify: (req) => {
+    const email = (req.body as { email?: unknown } | undefined)?.email;
+    return typeof email === 'string' ? `email:${email.toLowerCase()}` : null;
+  },
+});
 const refreshLimit = rateLimit('refresh', { perUser: 30 });
 const oauthLimit = rateLimit('oauth', { perUser: 20 });
 

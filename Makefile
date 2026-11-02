@@ -15,7 +15,7 @@ PG := /opt/homebrew/opt/postgresql@17/bin
         dev-api dev-worker dev-web sync-events typecheck test compose-up compose-down \
         cluster images import-images deploy redeploy-seed up status wait-metrics \
         watch-hpa logs-api logs-worker mode-naive mode-fairqueue \
-        bench-limits prod-limits scale-test bench \
+        bench-limits prod-limits scale-test bench bench-one bench-clean \
         cluster-down down
 
 install:
@@ -186,8 +186,20 @@ prod-limits:
 scale-test: wait-metrics bench-limits
 	bash bench/scale-test.sh
 
+# One scenario, one mode. The orchestrator owns the api process, because the
+# mode is read at boot and starting it here is the only way to be sure the
+# result file describes the server that produced it.
+bench-one:
+	@test -n "$(SCENARIO)" || (echo "usage: make bench-one SCENARIO=hot-seats MODE=naive"; exit 1)
+	set -a && . ./.env && set +a && npx --prefix api tsx bench/run.ts $(SCENARIO) $(MODE)
+
+# Every scenario against both builds, then the comparison table.
 bench:
-	@echo "k6 benchmarks + RESULTS.md — added in phase P7"
+	set -a && . ./.env && set +a && bash bench/run-all.sh
+
+# Put the database back if a run was interrupted mid-naive and left duplicates.
+bench-clean:
+	set -a && . ./.env && set +a && npx --prefix api tsx bench/clean.ts
 
 ## --- teardown ---
 

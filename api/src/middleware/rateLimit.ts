@@ -11,6 +11,16 @@ export type RateLimitOptions = {
   /** Requests one address may make in the window, as a multiple of perUser. */
   ipMultiplier?: number;
   windowSeconds?: number;
+  /**
+   * How to identify the caller when nobody is signed in yet.
+   *
+   * Without this, every anonymous request shares one counter, which turns the
+   * limiter into a denial of service: one client hammering /login exhausts the
+   * bucket and nobody else can sign in at all. Sign-in therefore keys on the
+   * address being attempted, so guessing at one account cannot lock out
+   * another.
+   */
+  identify?: (req: Request) => string | null;
 };
 
 const DEFAULT_WINDOW_SECONDS = 10;
@@ -40,8 +50,11 @@ export function rateLimit(bucket: string, options: RateLimitOptions) {
       return;
     }
 
-    const userId = req.user?.id ?? 'anon';
     const ip = req.ip ?? 'unknown';
+    // Signed in: the account. Not signed in: whatever the route can tell
+    // callers apart by, and the address as a last resort. Never a shared
+    // constant — see `identify` above for why.
+    const userId = req.user?.id ?? options.identify?.(req) ?? `ip:${ip}`;
     // The window is part of the key, so an old counter simply ages out.
     const window = Math.floor(Date.now() / 1000 / windowSeconds);
     const scoped = `${bucket}:${window}`;

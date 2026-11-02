@@ -1,0 +1,61 @@
+{
+  "scenario": "hot-seats",
+  "mode": "naive",
+  "startedAt": "2026-11-02T12:33:21.703Z",
+  "finishedAt": "2026-11-02T12:33:27.861Z",
+  "machine": {
+    "cpuModel": "Apple M4",
+    "cpuCores": 10,
+    "memoryGb": 16,
+    "platform": "darwin",
+    "osRelease": "25.6.0",
+    "arch": "arm64",
+    "nodeVersion": "v26.8.2",
+    "postgresVersion": "17.11",
+    "redisVersion": "8.10.3",
+    "k6Version": "k6 v2.3.0 (commit/devel, go1.27.1, darwin/arm64)"
+  },
+  "workload": {
+    "BUYERS": "200",
+    "PEAK_VUS": "120",
+    "ITERATIONS": "1200",
+    "HOT_SEATS": "50",
+    "eventId": "evt_headline"
+  },
+  "k6": {
+    "test": "hot-seats",
+    "mode": "naive",
+    "workload": {
+      "peakVus": 120,
+      "buyers": 200,
+      "durationSeconds": 6,
+      "hotSeats": 50
+    },
+    "requests": 1402,
+    "requestsPerSec": 243.5,
+    "httpErrorRate": 0.7425,
+    "latencyMs": {
+      "p95All": 56.3,
+      "p99All": 61.6,
+      "p95Checkout": 57.3,
+      "p99Checkout": 61.9,
+      "maxCheckout": 72.7
+    },
+    "outcomes": {
+      "purchases": 159,
+      "seatConflicts": 998,
+      "rateLimited": 43,
+      "admissionDenied": 0,
+      "serverErrors": 0
+    }
+  },
+  "database": {
+    "orders": 159,
+    "tickets": 159,
+    "distinctSeatsSold": 50,
+    "oversoldSeats": 44,
+    "duplicateTickets": 109,
+    "seatsOverCapacity": 0,
+    "uniqueIndexPresent": false
+  }
+}
