@@ -204,7 +204,7 @@ export default function Checkout() {
           </Button>
         </motion.form>
 
-        <aside className="order-1 flex flex-col gap-6 lg:order-2">
+        <aside className="order-1 flex h-fit flex-col gap-6 rounded bg-surface p-6 shadow-lift lg:order-2">
           <Label>Your order</Label>
           <div>
             <p className="font-display text-xl font-light">

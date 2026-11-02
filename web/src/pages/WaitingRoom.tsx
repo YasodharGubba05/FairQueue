@@ -200,7 +200,19 @@ export default function WaitingRoom() {
           <p className="text-sm text-muted">{event.venue}</p>
         </div>
 
-        <PositionNumber ahead={queue.ahead} progress={progress} admitted={queue.hasPass} />
+        {/* A very faint pool of light behind the number. The waiting room is
+            the emptiest screen in the product and needs a centre of gravity. */}
+        <div className="relative">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-[26rem] max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-pill"
+            style={{
+              background:
+                'radial-gradient(circle, hsl(var(--cursor-light) / calc(var(--cursor-light-alpha) * 1.6)), transparent 68%)',
+            }}
+          />
+          <PositionNumber ahead={queue.ahead} progress={progress} admitted={queue.hasPass} />
+        </div>
 
         <p aria-live="polite" className="max-w-reading text-balance text-sm leading-relaxed text-muted-foreground">
           {queue.hasPass
@@ -211,18 +223,17 @@ export default function WaitingRoom() {
         </p>
       </motion.div>
 
-      {/* The three numbers, on one rule. No tiles. */}
-      <dl className="grid grid-cols-3 border-t">
+      {/* Three lifted surfaces rather than columns divided by rules: on a
+          screen this empty, a hairline is not enough to read as structure. */}
+      <dl className="grid gap-3 sm:grid-cols-3">
         <Stat label="Your number" value={joinNumber.toLocaleString()} />
         <Stat
           label="Estimated wait"
           value={queue.hasPass ? 'None' : paused ? 'Paused' : formatWait(waitSeconds)}
-          className="border-l"
         />
         <Stat
           label="In line"
           value={Math.max(0, queue.joined - queue.admitted).toLocaleString()}
-          className="border-l"
         />
       </dl>
 
@@ -233,9 +244,9 @@ export default function WaitingRoom() {
   );
 }
 
-function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className={`flex flex-col items-center gap-3 py-7 ${className ?? ''}`}>
+    <div className="flex flex-col items-center gap-3 rounded bg-surface py-7 shadow-lift">
       <dt className="label">{label}</dt>
       <dd data-numeral className="font-display text-xl font-light sm:text-2xl">
         {value}

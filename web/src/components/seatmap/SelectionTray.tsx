@@ -37,7 +37,7 @@ export function SelectionTray({
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ duration: 0.42, ease: [0.22, 0.61, 0.36, 1] }}
-          className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur-xl"
+          className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 shadow-lift-hover backdrop-blur-xl"
         >
           <div className="mx-auto flex max-w-page flex-col gap-4 px-gutter py-5 lg:flex-row lg:items-center lg:gap-10 lg:px-gutter-lg">
             <div className="flex min-w-0 flex-1 flex-col gap-3">
