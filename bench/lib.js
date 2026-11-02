@@ -3,6 +3,19 @@ import { sleep } from 'k6';
 import { Counter } from 'k6/metrics';
 
 /**
+ * "A seat was taken" is not a failure.
+ *
+ * By default k6 counts every non-2xx as a failed request, which made the error
+ * rate meaningless here: a sold-out venue answering 409 to everyone looked
+ * identical to a service falling over. A run where everybody was refused a
+ * seat and one where the server stopped answering could not be told apart.
+ *
+ * So 4xx is expected. Only a 5xx or a dead connection counts as the service
+ * failing, which is the thing the error rate is supposed to measure.
+ */
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 499 }));
+
+/**
  * Shared by every k6 script, so the two modes are driven identically.
  *
  * The one thing that differs between naive and fairqueue is the queue: naive
@@ -59,12 +72,19 @@ export function authHeaders(token) {
  * A run where everyone was rate limited and one where the seats sold out look
  * identical in an error rate and could not be more different.
  */
-export function classify(res) {
+export function classify(res, { countPurchase = true } = {}) {
   if (res.status === 429) { rateLimited.add(1); return 'rate_limited'; }
   if (res.status === 403) { admissionDenied.add(1); return 'no_pass'; }
   if (res.status === 409) { seatConflicts.add(1); return 'seat_gone'; }
   if (res.status >= 500 || res.status === 0) { serverErrors.add(1); return 'server_error'; }
-  if (res.status === 201) { purchases.add(1); return 'bought'; }
+  if (res.status === 201) {
+    // A successful hold is a 201 too, and it is NOT a purchase. Counting it as
+    // one double-counted every fairqueue sale — and naive has no hold step, so
+    // the comparison was skewed in fairqueue's favour on volume. Only checkout
+    // may increment this.
+    if (countPurchase) purchases.add(1);
+    return countPurchase ? 'bought' : 'held';
+  }
   return 'other';
 }
 
@@ -79,7 +99,7 @@ export function waitForAdmission(auth, maxSeconds = 60) {
     ...auth,
     tags: { name: 'queue-join' },
   });
-  if (joined.status === 429) { rateLimited.add(1); return false; }
+  if (joined.status === 429) { rateLimited.add(1); sleep(BACKOFF_SECONDS); return false; }
   if (joined.status !== 200) return false;
   if (joined.json('hasPass')) return true;
 
@@ -94,6 +114,29 @@ export function waitForAdmission(auth, maxSeconds = 60) {
   return false;
 }
 
+/**
+ * How long a client waits after being told to slow down.
+ *
+ * Without this a virtual user that gets a 429 retries instantly, and because a
+ * 429 is answered in under a millisecond it spins. A run measured that way is
+ * measuring the rate limiter: an early attempt produced 1.13 million requests
+ * of which 98% were 429s, which says nothing about the booking path and
+ * nothing about either build.
+ *
+ * The limit itself is left exactly as it ships — it is a real property of the
+ * service, not something to turn off for a benchmark. What changes is that the
+ * client now behaves like a client.
+ */
+export const BACKOFF_SECONDS = Number(__ENV.BACKOFF_SECONDS || 2);
+
+export function backOffIfLimited(outcome) {
+  if (outcome === 'rate_limited') {
+    sleep(BACKOFF_SECONDS);
+    return true;
+  }
+  return false;
+}
+
 /** Hold then buy. In naive mode there is nothing to hold, so it just buys. */
 export function attemptPurchase(auth, seatId, mode) {
   if (mode === 'fairqueue') {
@@ -102,7 +145,11 @@ export function attemptPurchase(auth, seatId, mode) {
       JSON.stringify({ seatIds: [seatId] }),
       { ...auth, tags: { name: 'hold' } },
     );
-    if (classify(hold) !== 'other' && hold.status !== 201) return hold;
+    const holdOutcome = classify(hold, { countPurchase: false });
+    if (holdOutcome !== 'held' && holdOutcome !== 'other') {
+      backOffIfLimited(holdOutcome);
+      return hold;
+    }
   }
 
   const checkout = http.post(
@@ -110,7 +157,7 @@ export function attemptPurchase(auth, seatId, mode) {
     JSON.stringify({ seatIds: [seatId] }),
     { ...auth, tags: { name: 'checkout' } },
   );
-  classify(checkout);
+  backOffIfLimited(classify(checkout));
   return checkout;
 }
 
@@ -148,6 +195,11 @@ export function summarise(data, testName) {
       p99Checkout: checkout ? round(checkout.values['p(99)']) : null,
       maxCheckout: checkout ? round(checkout.values.max) : null,
     },
+    // A run where almost everything was rate limited is not a measurement of
+    // the booking path, and the reader has to be able to see that.
+    rateLimitedShare: n('http_reqs') > 0
+      ? Math.round((n('fq_rate_limited') / n('http_reqs')) * 10000) / 10000
+      : 0,
     outcomes: {
       purchases: n('fq_purchases'),
       seatConflicts: n('fq_seat_conflicts'),

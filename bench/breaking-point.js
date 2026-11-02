@@ -1,7 +1,9 @@
-import { check } from 'k6';
+import http from 'k6/http';
+import { check, sleep } from 'k6';
 import { Trend } from 'k6/metrics';
 import {
-  attemptPurchase, authHeaders, fetchSeatIds, loginBuyers, readMode, summarise,
+  BASE_URL, EVENT_ID, attemptPurchase, authHeaders, fetchSeatIds, loginBuyers, readMode,
+  summarise,
 } from './lib.js';
 
 /**
@@ -18,9 +20,12 @@ import {
  * before sending the next. Closed-loop VU models hide saturation, because a
  * slowing server simply receives fewer requests.
  *
- * The queue is skipped here on purpose, for both modes. This measures the
- * ceiling of the booking path itself; admission is paced by the worker, so
- * including it would measure admitPerSec instead of the service.
+ * Buyers are admitted up front rather than queueing during the ramp. Admission
+ * is paced by the worker at admitPerSec, so queueing inside the measured
+ * window would measure that pacing rather than the service — and the first
+ * attempt at this did exactly that: every request was refused for want of a
+ * pass, so fairqueue appeared to break at 50 req/s having sold nothing at all.
+ * Passes are granted first; the ramp then measures the booking path itself.
  */
 const BUYERS = Number(__ENV.BUYERS || 400);
 const START_RATE = Number(__ENV.START_RATE || 50);
@@ -37,6 +42,8 @@ for (let i = 0; i < STEPS; i++) {
 }
 
 export const options = {
+  // Admitting several hundred buyers takes longer than the default minute.
+  setupTimeout: '180s',
   scenarios: {
     ramp: {
       executor: 'ramping-arrival-rate',
@@ -67,10 +74,40 @@ export function setup() {
   const mode = readMode();
   const tokens = loginBuyers(BUYERS);
   const seats = fetchSeatIds();
+
+  // Admit everyone before the clock starts, so the ramp measures the booking
+  // path rather than the worker's admission rate.
+  //
+  // Everyone joins first and the wait happens once, rather than each buyer
+  // being walked through its own poll loop — that took a second per buyer and
+  // blew the setup timeout long before anyone was admitted.
+  let admitted = tokens.length;
+  if (mode === 'fairqueue') {
+    for (const token of tokens) {
+      http.post(`${BASE_URL}/api/events/${EVENT_ID}/queue/join`, null, {
+        ...authHeaders(token),
+        tags: { name: 'setup-join' },
+      });
+    }
+
+    admitted = 0;
+    for (let attempt = 0; attempt < 60 && admitted < tokens.length; attempt++) {
+      sleep(1);
+      admitted = 0;
+      for (const token of tokens) {
+        const state = http.get(`${BASE_URL}/api/events/${EVENT_ID}/queue`, {
+          ...authHeaders(token),
+          tags: { name: 'setup-poll' },
+        });
+        if (state.status === 200 && state.json('hasPass')) admitted += 1;
+      }
+    }
+  }
+
   console.log(
-    `mode=${mode} stepping ${START_RATE}→${START_RATE + (STEPS - 1) * STEP} req/s over ${STEPS} stages`,
+    `mode=${mode} admitted=${admitted}/${tokens.length} stepping ${START_RATE}→${START_RATE + (STEPS - 1) * STEP} req/s over ${STEPS} stages`,
   );
-  return { mode, tokens, seats };
+  return { mode, tokens, seats, admitted };
 }
 
 export default function (data) {
@@ -101,6 +138,7 @@ export function handleSummary(data) {
   const completedStages = Math.min(STEPS, Math.floor(ranSeconds / STAGE_SECONDS));
 
   summary.ceiling = {
+    admittedBuyers: data.setup_data?.admitted ?? null,
     ranSeconds,
     plannedSeconds,
     abortedEarly: ranSeconds < plannedSeconds - STAGE_SECONDS,

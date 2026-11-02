@@ -2,7 +2,8 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
-  EVENT_ID, connect, machineSpec, resetSaleState, setIndexForMode, verifyDatabase,
+  BENCH_ADMIT_PER_SEC, EVENT_ID, connect, machineSpec, resetSaleState, setIndexForMode,
+  verifyDatabase,
 } from './harness';
 
 /**
@@ -107,7 +108,9 @@ async function main() {
 
     const before = await verifyDatabase(prisma, EVENT_ID);
     if (before.tickets !== 0) throw new Error('reset failed: tickets remain');
-    log(`clean start · unique index ${before.uniqueIndexPresent ? 'present' : 'dropped'}`);
+    log(
+      `clean start · unique index ${before.uniqueIndexPresent ? 'present' : 'dropped'} · admitPerSec ${BENCH_ADMIT_PER_SEC}`,
+    );
 
     log(`starting api in ${mode} mode on :${API_PORT}`);
     api = startApi(mode);
@@ -153,7 +156,7 @@ async function main() {
       startedAt: startedAt.toISOString(),
       finishedAt: finishedAt.toISOString(),
       machine: spec,
-      workload: { ...workload, eventId: EVENT_ID },
+      workload: { ...workload, eventId: EVENT_ID, admitPerSec: String(BENCH_ADMIT_PER_SEC) },
       k6: k6Summary,
       database: verdict,
     };

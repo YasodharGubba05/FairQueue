@@ -1,8 +1,8 @@
 {
   "scenario": "hot-seats",
   "mode": "naive",
-  "startedAt": "2026-11-02T12:33:21.703Z",
-  "finishedAt": "2026-11-02T12:33:27.861Z",
+  "startedAt": "2026-11-02T13:01:21.691Z",
+  "finishedAt": "2026-11-02T13:01:29.290Z",
   "machine": {
     "cpuModel": "Apple M4",
     "cpuCores": 10,
@@ -20,7 +20,8 @@
     "PEAK_VUS": "120",
     "ITERATIONS": "1200",
     "HOT_SEATS": "50",
-    "eventId": "evt_headline"
+    "eventId": "evt_headline",
+    "admitPerSec": "500"
   },
   "k6": {
     "test": "hot-seats",
@@ -28,33 +29,34 @@
     "workload": {
       "peakVus": 120,
       "buyers": 200,
-      "durationSeconds": 6,
+      "durationSeconds": 7,
       "hotSeats": 50
     },
     "requests": 1402,
-    "requestsPerSec": 243.5,
-    "httpErrorRate": 0.7425,
+    "requestsPerSec": 195.5,
+    "httpErrorRate": 0,
     "latencyMs": {
-      "p95All": 56.3,
-      "p99All": 61.6,
-      "p95Checkout": 57.3,
-      "p99Checkout": 61.9,
-      "maxCheckout": 72.7
+      "p95All": 51.5,
+      "p99All": 56.2,
+      "p95Checkout": 51.8,
+      "p99Checkout": 57,
+      "maxCheckout": 58.3
     },
+    "rateLimitedShare": 0.0185,
     "outcomes": {
-      "purchases": 159,
-      "seatConflicts": 998,
-      "rateLimited": 43,
+      "purchases": 143,
+      "seatConflicts": 1031,
+      "rateLimited": 26,
       "admissionDenied": 0,
       "serverErrors": 0
     }
   },
   "database": {
-    "orders": 159,
-    "tickets": 159,
+    "orders": 143,
+    "tickets": 143,
     "distinctSeatsSold": 50,
-    "oversoldSeats": 44,
-    "duplicateTickets": 109,
+    "oversoldSeats": 41,
+    "duplicateTickets": 93,
     "seatsOverCapacity": 0,
     "uniqueIndexPresent": false
   }

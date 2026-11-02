@@ -15,6 +15,17 @@ import Redis from '../api/node_modules/ioredis';
 
 export const EVENT_ID = process.env.BENCH_EVENT_ID ?? 'evt_headline';
 
+/**
+ * Pinned for every run, and recorded in the result file.
+ *
+ * admitPerSec lives in a database row that a demo or an admin can change, and
+ * one did: a run found it left at 3 from a waiting-room demo, which made
+ * admission the bottleneck instead of the service and quietly invalidated the
+ * comparison. A benchmark cannot take its own parameters from mutable state.
+ */
+export const BENCH_ADMIT_PER_SEC = Number(process.env.BENCH_ADMIT_PER_SEC ?? 500);
+export const BENCH_MAX_SEATS_PER_USER = Number(process.env.BENCH_MAX_SEATS_PER_USER ?? 4);
+
 export type MachineSpec = {
   cpuModel: string;
   cpuCores: number;
@@ -77,6 +88,20 @@ export async function machineSpec(prisma: PrismaClient, redis: Redis): Promise<M
 export async function resetSaleState(prisma: PrismaClient, redis: Redis, eventId = EVENT_ID) {
   await prisma.ticket.deleteMany({ where: { eventId } });
   await prisma.order.deleteMany({ where: { eventId } });
+
+  // Pin the sale's own parameters, so a run is not silently shaped by whatever
+  // the row happened to contain.
+  await prisma.event.update({
+    where: { id: eventId },
+    data: {
+      status: 'LIVE',
+      admitPerSec: BENCH_ADMIT_PER_SEC,
+      maxSeatsPerUser: BENCH_MAX_SEATS_PER_USER,
+      saleOpensAt: new Date(Date.now() - 60_000),
+      // Far enough out that the lifecycle sweep cannot retire it mid-run.
+      endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
 
   const patterns = [
     `queue:*${eventId}*`,

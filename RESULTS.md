@@ -7,7 +7,7 @@ taken says so rather than being filled in with something plausible.
 Reproduce with `make bench`, or one scenario with
 `make bench-one SCENARIO=hot-seats MODE=naive`.
 
-Last run: 2026-11-02T12:33:21.703Z
+Last run: 2026-11-02T13:09:10.577Z
 
 ## Machine
 
@@ -32,7 +32,14 @@ a read-then-write checkout looks like without a safety net.
 
 | Scenario | Build | Tickets | Distinct seats | Oversold seats | Duplicate tickets |
 |---|---|---|---|---|---|
-| hot-seats | naive | 159 | 50 | **44** | 109 |
+| hot-seats | naive | 143 | 50 | **41** | 93 |
+| hot-seats | fairqueue | 50 | 50 | **0** | 0 |
+| flash-sale | naive | 2015 | 1999 | **16** | 16 |
+| flash-sale | fairqueue | 800 | 800 | **0** | 0 |
+| bots | naive | 1985 | 1979 | **6** | 6 |
+| bots | fairqueue | 540 | 540 | **0** | 0 |
+| breaking-point | naive | 2001 | 2000 | **1** | 1 |
+| breaking-point | fairqueue | 800 | 800 | **0** | 0 |
 
 ## 2. Performance
 
@@ -44,11 +51,27 @@ figure worth comparing.
 
 | Scenario | p95 checkout (naive) | p95 checkout (fairqueue) | Change |
 |---|---|---|---|
-| hot-seats | 57.3 ms | — | — |
+| hot-seats | 51.8 ms | 47 ms | 9% faster |
+| flash-sale | 25.3 ms | 5.9 ms | 77% faster |
+| bots | 26.8 ms | 7.7 ms | 71% faster |
+| breaking-point | 25.5 ms | 7 ms | 73% faster |
 
-| Scenario | Build | Requests | Req/s | Purchases | HTTP errors |
-|---|---|---|---|---|---|
-| hot-seats | naive | 1402 | 243.5 | 159 | 74.25% |
+| Scenario | Build | Requests | Req/s | Purchases | 5xx rate | Rate limited |
+|---|---|---|---|---|---|---|
+| hot-seats | naive | 1,402 | 195.5 | 143 | 0.00% | 1.85% |
+| hot-seats | fairqueue | 2,772 | 437.7 | 50 | 0.00% | 0.00% |
+| flash-sale | naive | 15,525 | 192.5 | 2015 | 0.00% | 14.38% |
+| flash-sale | fairqueue | 29,310 | 363.2 | 800 | 0.00% | 9.27% |
+| bots | naive | 11,984 | 152.1 | 1985 | 0.00% | 16.33% |
+| bots | fairqueue | 23,532 | 298 | 540 | 0.00% | 9.73% |
+| breaking-point | naive | 22,890 | 230.3 | 2001 | 0.00% | 17.19% |
+| breaking-point | fairqueue | 24,951 | 252.2 | 800 | 0.00% | 0.00% |
+
+A high **rate limited** share means the run hit the per-account limit rather
+than the service's capacity, and its latency figures describe the limiter
+instead of the booking path. The limit is left exactly as it ships — it is a
+real property of the service, not something to switch off for a benchmark — so
+a flagged row is a statement about the workload, not a defect.
 
 ## 3. Concurrency ceiling
 
@@ -61,7 +84,15 @@ A constant-arrival-rate model rather than a fixed pool of virtual users: a
 closed-loop model hides saturation, because a slowing server simply receives
 fewer requests.
 
-_No breaking-point runs recorded._
+| Build | Sustained arrival rate | Stages completed | Broke under load | p95 checkout |
+|---|---|---|---|---|
+| naive | **550 req/s** | 6 | no | 25.5 ms |
+| fairqueue | **550 req/s** | 6 | no | 7 ms |
+
+> Neither build broke at the highest rate tested, so these are **floors, not
+> ceilings** — the real limit is above 550 req/s for both and this run did not
+> find it. Raising `STEPS` would locate it; the figure is reported as measured
+> rather than extrapolated.
 
 ## 4. Bot resistance
 
@@ -69,7 +100,10 @@ A tenth of the traffic skips the queue and goes straight at hold and checkout,
 as fast as it can. The number that matters is not the error rate but the share
 of the sale the bots walked away with.
 
-_No bot runs recorded._
+| Build | Bot tickets | Human tickets | Share won by bots |
+|---|---|---|---|
+| naive | 263 | 1722 | **13.3%** |
+| fairqueue | 0 | 540 | **0.0%** |
 
 ## 5. Kubernetes autoscaling
 

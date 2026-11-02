@@ -1,0 +1,60 @@
+{
+  "scenario": "flash-sale",
+  "mode": "fairqueue",
+  "startedAt": "2026-11-02T13:03:11.105Z",
+  "finishedAt": "2026-11-02T13:04:32.227Z",
+  "machine": {
+    "cpuModel": "Apple M4",
+    "cpuCores": 10,
+    "memoryGb": 16,
+    "platform": "darwin",
+    "osRelease": "25.6.0",
+    "arch": "arm64",
+    "nodeVersion": "v26.8.2",
+    "postgresVersion": "17.11",
+    "redisVersion": "8.10.3",
+    "k6Version": "k6 v2.3.0 (commit/devel, go1.27.1, darwin/arm64)"
+  },
+  "workload": {
+    "BUYERS": "400",
+    "PEAK_VUS": "200",
+    "eventId": "evt_headline",
+    "admitPerSec": "500"
+  },
+  "k6": {
+    "test": "flash-sale",
+    "mode": "fairqueue",
+    "workload": {
+      "peakVus": 200,
+      "buyers": 400,
+      "durationSeconds": 81
+    },
+    "requests": 29310,
+    "requestsPerSec": 363.2,
+    "httpErrorRate": 0,
+    "latencyMs": {
+      "p95All": 20.4,
+      "p99All": 31,
+      "p95Checkout": 5.9,
+      "p99Checkout": 12.7,
+      "maxCheckout": 72.9
+    },
+    "rateLimitedShare": 0.0927,
+    "outcomes": {
+      "purchases": 800,
+      "seatConflicts": 11795,
+      "rateLimited": 2718,
+      "admissionDenied": 0,
+      "serverErrors": 0
+    }
+  },
+  "database": {
+    "orders": 800,
+    "tickets": 800,
+    "distinctSeatsSold": 800,
+    "oversoldSeats": 0,
+    "duplicateTickets": 0,
+    "seatsOverCapacity": 0,
+    "uniqueIndexPresent": true
+  }
+}

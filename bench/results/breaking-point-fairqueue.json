@@ -1,0 +1,76 @@
+{
+  "scenario": "breaking-point",
+  "mode": "fairqueue",
+  "startedAt": "2026-11-02T13:09:10.577Z",
+  "finishedAt": "2026-11-02T13:10:49.889Z",
+  "machine": {
+    "cpuModel": "Apple M4",
+    "cpuCores": 10,
+    "memoryGb": 16,
+    "platform": "darwin",
+    "osRelease": "25.6.0",
+    "arch": "arm64",
+    "nodeVersion": "v26.8.2",
+    "postgresVersion": "17.11",
+    "redisVersion": "8.10.3",
+    "k6Version": "k6 v2.3.0 (commit/devel, go1.27.1, darwin/arm64)"
+  },
+  "workload": {
+    "BUYERS": "300",
+    "START_RATE": "50",
+    "STEP": "100",
+    "STEPS": "6",
+    "STAGE_SECONDS": "15",
+    "eventId": "evt_headline",
+    "admitPerSec": "500"
+  },
+  "k6": {
+    "test": "breaking-point",
+    "mode": "fairqueue",
+    "workload": {
+      "peakVus": 0,
+      "buyers": 300,
+      "durationSeconds": 99,
+      "startRate": 50,
+      "step": 100,
+      "steps": 6,
+      "stageSeconds": 15,
+      "peakRateAttempted": 550
+    },
+    "requests": 24951,
+    "requestsPerSec": 252.2,
+    "httpErrorRate": 0,
+    "latencyMs": {
+      "p95All": 3.8,
+      "p99All": 24.1,
+      "p95Checkout": 7,
+      "p99Checkout": 8.8,
+      "maxCheckout": 18.5
+    },
+    "rateLimitedShare": 0,
+    "outcomes": {
+      "purchases": 800,
+      "seatConflicts": 22449,
+      "rateLimited": 0,
+      "admissionDenied": 0,
+      "serverErrors": 0
+    },
+    "ceiling": {
+      "admittedBuyers": 300,
+      "ranSeconds": 99,
+      "plannedSeconds": 90,
+      "abortedEarly": false,
+      "completedStages": 6,
+      "sustainedRatePerSec": 550
+    }
+  },
+  "database": {
+    "orders": 800,
+    "tickets": 800,
+    "distinctSeatsSold": 800,
+    "oversoldSeats": 0,
+    "duplicateTickets": 0,
+    "seatsOverCapacity": 0,
+    "uniqueIndexPresent": true
+  }
+}

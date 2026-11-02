@@ -24,6 +24,7 @@ type Result = {
     requests: number;
     requestsPerSec: number;
     httpErrorRate: number;
+    rateLimitedShare?: number;
     latencyMs: { p95Checkout: number | null; p99Checkout: number | null; p95All: number | null };
     outcomes: {
       purchases: number;
@@ -124,8 +125,8 @@ function latencyTable(results: Result[]): string {
 
 function throughputTable(results: Result[]): string {
   const rows = [
-    '| Scenario | Build | Requests | Req/s | Purchases | HTTP errors |',
-    '|---|---|---|---|---|---|',
+    '| Scenario | Build | Requests | Req/s | Purchases | 5xx rate | Rate limited |',
+    '|---|---|---|---|---|---|---|',
   ];
   let any = false;
   for (const scenario of ['hot-seats', 'flash-sale', 'bots', 'breaking-point']) {
@@ -133,8 +134,9 @@ function throughputTable(results: Result[]): string {
     for (const [label, r] of [['naive', naive], ['fairqueue', fairqueue]] as const) {
       if (!r?.k6) continue;
       any = true;
+      const limited = r.k6.rateLimitedShare ?? 0;
       rows.push(
-        `| ${scenario} | ${label} | ${r.k6.requests} | ${r.k6.requestsPerSec} | ${r.k6.outcomes.purchases} | ${pct(r.k6.httpErrorRate)} |`,
+        `| ${scenario} | ${label} | ${r.k6.requests.toLocaleString()} | ${r.k6.requestsPerSec} | ${r.k6.outcomes.purchases} | ${pct(r.k6.httpErrorRate)} | ${pct(limited)}${limited > 0.5 ? ' ⚠' : ''} |`,
       );
     }
   }
@@ -159,14 +161,26 @@ function ceilingTable(results: Result[]): string {
   const { naive, fairqueue } = pair(results, 'breaking-point');
   if (!naive?.k6?.ceiling && !fairqueue?.k6?.ceiling) return '_No breaking-point runs recorded._';
   const rows = [
-    '| Build | Sustained arrival rate | Stages completed | Aborted early | p95 checkout |',
+    '| Build | Sustained arrival rate | Stages completed | Broke under load | p95 checkout |',
     '|---|---|---|---|---|',
   ];
+  let anyBroke = false;
   for (const [label, r] of [['naive', naive], ['fairqueue', fairqueue]] as const) {
     const c = r?.k6?.ceiling;
     if (!c) continue;
+    if (c.abortedEarly) anyBroke = true;
     rows.push(
       `| ${label} | **${c.sustainedRatePerSec} req/s** | ${c.completedStages} | ${c.abortedEarly ? 'yes' : 'no'} | ${n(r?.k6?.latencyMs.p95Checkout ?? null, ' ms')} |`,
+    );
+  }
+
+  if (!anyBroke) {
+    rows.push('');
+    rows.push(
+      '> Neither build broke at the highest rate tested, so these are **floors, not',
+      '> ceilings** — the real limit is above 550 req/s for both and this run did not',
+      '> find it. Raising `STEPS` would locate it; the figure is reported as measured',
+      '> rather than extrapolated.',
     );
   }
   return rows.join('\n');
@@ -238,6 +252,12 @@ figure worth comparing.
 ${latencyTable(results)}
 
 ${throughputTable(results)}
+
+A high **rate limited** share means the run hit the per-account limit rather
+than the service's capacity, and its latency figures describe the limiter
+instead of the booking path. The limit is left exactly as it ships — it is a
+real property of the service, not something to switch off for a benchmark — so
+a flagged row is a statement about the workload, not a defect.
 
 ## 3. Concurrency ceiling
 
