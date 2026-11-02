@@ -9,6 +9,9 @@ import WaitingRoom from '@/pages/WaitingRoom';
 import SeatMap from '@/pages/SeatMap';
 import Checkout from '@/pages/Checkout';
 import TicketPage from '@/pages/TicketPage';
+import Wallet from '@/pages/Wallet';
+import TicketDetail from '@/pages/TicketDetail';
+import VerifyTicket from '@/pages/VerifyTicket';
 import Admin from '@/pages/Admin';
 import MissionControl from '@/pages/MissionControl';
 import NotFound from '@/pages/NotFound';
@@ -24,6 +27,8 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/mission-control" element={<MissionControl />} />
+          {/* Public: a door scanner has no account. */}
+          <Route path="/verify/:ticketId" element={<VerifyTicket />} />
 
           {/* Buying needs an account: a queue place belongs to one. */}
           <Route
@@ -55,6 +60,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <TicketPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wallet"
+            element={
+              <ProtectedRoute>
+                <Wallet />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tickets/:ticketId"
+            element={
+              <ProtectedRoute>
+                <TicketDetail />
               </ProtectedRoute>
             }
           />

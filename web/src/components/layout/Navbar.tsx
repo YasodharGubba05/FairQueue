@@ -9,10 +9,11 @@ import { cn } from '@/lib/utils';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
 
-type NavItem = { to: string; label: string; adminOnly?: boolean };
+type NavItem = { to: string; label: string; adminOnly?: boolean; signedInOnly?: boolean };
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Events' },
+  { to: '/wallet', label: 'Wallet', signedInOnly: true },
   { to: '/mission-control', label: 'Mission Control' },
   { to: '/admin', label: 'Admin', adminOnly: true },
 ];
@@ -36,7 +37,10 @@ export function Navbar() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === 'ADMIN');
+  const items = NAV_ITEMS.filter(
+    (item) =>
+      (!item.adminOnly || user?.role === 'ADMIN') && (!item.signedInOnly || Boolean(user)),
+  );
 
   return (
     <header

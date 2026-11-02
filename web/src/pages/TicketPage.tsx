@@ -133,9 +133,14 @@ export default function TicketPage() {
           <p className="text-xs text-faint">
             Show this code at the door. Payment was simulated and no real ticket was issued.
           </p>
-          <Button asChild variant="subtle" size="md" className="self-start">
-            <Link to="/">Back to events</Link>
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild variant="solid" size="md">
+              <Link to="/wallet">Open your wallet</Link>
+            </Button>
+            <Button asChild variant="subtle" size="md">
+              <Link to="/">Back to events</Link>
+            </Button>
+          </div>
         </div>
       </motion.div>
     </div>

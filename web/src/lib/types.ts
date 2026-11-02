@@ -134,3 +134,40 @@ export type StatsTick = {
   oversold: number;
   at: number;
 };
+
+export type WalletTicket = {
+  id: string;
+  seat: { section: string; row: string; number: number; price: number };
+  event: {
+    id: string;
+    name: string;
+    venue: string;
+    city: string | null;
+    startsAt: string;
+    endsAt: string;
+    status: EventSummary['status'];
+    verified: boolean;
+    sourceLabel: string;
+    sourceName: string | null;
+    sourceUrl: string | null;
+  };
+  order: { id: string; total: number; placedAt: string };
+  /** Arrived by transfer rather than purchase. */
+  receivedByTransfer: boolean;
+  boughtByViewer: boolean;
+  transferCount: number;
+  transferable: boolean;
+  /** Always true. Every FairQueue ticket is simulated, without exception. */
+  simulated: boolean;
+  issuedAt: string;
+};
+
+export type WalletResponse = { tickets: WalletTicket[]; upcoming: number; past: number };
+
+export type TicketTimelineEntry = {
+  kind: 'purchased' | 'transferred';
+  at: string;
+  actor: { from: string; to: string } | null;
+};
+
+export type TicketDetail = { ticket: WalletTicket; timeline: TicketTimelineEntry[] };
