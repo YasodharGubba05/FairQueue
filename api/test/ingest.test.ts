@@ -160,14 +160,19 @@ describe('Phase P7 — ingesting provider events', () => {
       const created = await upsertSourcedEvent(prisma, EventSourceKind.TICKETMASTER, sourced());
       const seat = await prisma.seat.findFirstOrThrow({ where: { eventId: created.eventId } });
 
-      const buyer = await prisma.user.create({
-        data: { id: 'usr_ingest_buyer', email: 'ingest@test.dev', passwordHash: 'x' },
+      // Upsert rather than create: a previous failed run can leave this row
+      // behind, and a test that cannot be run twice is not much of a test.
+      const buyer = await prisma.user.upsert({
+        where: { id: 'usr_ingest_buyer' },
+        update: {},
+        create: { id: 'usr_ingest_buyer', email: 'ingest@test.dev', passwordHash: 'x' },
       });
       const order = await prisma.order.create({
         data: { userId: buyer.id, eventId: created.eventId, total: seat.price },
       });
       await prisma.ticket.create({
-        data: { orderId: order.id, eventId: created.eventId, seatId: seat.id },
+        // Ownership is a property of the ticket now, not read through the order.
+        data: { orderId: order.id, eventId: created.eventId, seatId: seat.id, ownerId: buyer.id },
       });
 
       await upsertSourcedEvent(

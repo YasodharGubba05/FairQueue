@@ -130,7 +130,15 @@ checkoutRouter.post(
           data: { userId: user.id, eventId, total },
         });
         await tx.ticket.createMany({
-          data: seats.map((seat) => ({ orderId: created.id, eventId, seatId: seat.id })),
+          // The buyer is the first owner. It is set here rather than read back
+          // through the order, because a transfer will move it later and the
+          // order must keep recording who paid.
+          data: seats.map((seat) => ({
+            orderId: created.id,
+            eventId,
+            seatId: seat.id,
+            ownerId: user.id,
+          })),
         });
         return created;
       });
@@ -208,7 +216,9 @@ async function naiveCheckout(
   const tickets = [];
   for (const seat of seats) {
     tickets.push(
-      await prisma.ticket.create({ data: { orderId: order.id, eventId, seatId: seat.id } }),
+      await prisma.ticket.create({
+        data: { orderId: order.id, eventId, seatId: seat.id, ownerId: userId },
+      }),
     );
   }
 
@@ -232,7 +242,11 @@ checkoutRouter.get('/api/orders/:orderId', requireAuth, async (req: Request, res
     return;
   }
 
-  // Buyers can only see their own orders; admins can see all.
+  // Deliberately gated on who PAID, not on who now holds the tickets. An order
+  // is a purchase record and carries the total paid, which is the buyer's
+  // business and not the recipient's. Somebody who received a ticket by
+  // transfer reads it through /api/tickets/:id, which shows the ticket without
+  // the price somebody else paid for it.
   if (order.userId !== user.id && user.role !== 'ADMIN') {
     res.status(403).json({ error: 'Access denied' });
     return;

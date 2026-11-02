@@ -60,6 +60,9 @@ model User {
   orders        Order[]
   identities    OAuthIdentity[]
   refreshTokens RefreshToken[]
+  tickets       Ticket[]         @relation("TicketOwner")
+  transfersOut  TicketTransfer[] @relation("TransferFrom")
+  transfersIn   TicketTransfer[] @relation("TransferTo")
 }
 
 /// A provider account linked to a user.
@@ -198,12 +201,51 @@ model Ticket {
   eventId String
   seatId  String
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  seat  Seat  @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  /// Who holds this ticket now.
+  ///
+  /// Deliberately separate from the order's userId. The order records who
+  /// *paid*, which is history and must never be edited; this records who the
+  /// ticket currently belongs to, which changes when it is transferred. Before
+  /// transfers existed, ownership was read through the order — that only works
+  /// while a ticket cannot move.
+  ownerId String
+
+  /// Bumped on every transfer. The update that moves a ticket is conditional
+  /// on this, so two simultaneous transfers cannot both succeed.
+  version Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event     Event            @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  seat      Seat             @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  owner     User             @relation("TicketOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  transfers TicketTransfer[]
 
   // The last line of defense against double-selling: even if every lock above
   // this fails, the database physically cannot store the same seat twice.
   @@unique([eventId, seatId])
   @@index([orderId])
+  @@index([ownerId])
+}
+
+/// Every hand a ticket has passed through.
+///
+/// Append-only: a transfer is recorded, never amended or removed. Without this
+/// a ticket's current owner would be the only fact available, and "who had it
+/// before" is exactly the question anyone investigating a dispute asks.
+model TicketTransfer {
+  id         String   @id @default(cuid())
+  ticketId   String
+  fromUserId String
+  toUserId   String
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  from   User   @relation("TransferFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to     User   @relation("TransferTo", fields: [toUserId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([toUserId])
+  @@index([fromUserId])
 }

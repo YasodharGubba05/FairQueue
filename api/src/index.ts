@@ -17,6 +17,7 @@ import { queueRouter } from './routes/queue';
 import { holdsRouter } from './routes/holds';
 import { statsRouter } from './routes/stats';
 import { adminRouter } from './routes/admin';
+import { walletRouter } from './routes/wallet';
 import { startBroadcastBridge } from './broadcast';
 import { stopSeatUpdates } from './seatUpdates';
 import { startEventSync, stopEventSync } from './events/scheduler';
@@ -37,6 +38,7 @@ app.use(seatsRouter);
 app.use(holdsRouter);
 app.use(statsRouter);
 app.use(adminRouter);
+app.use(walletRouter);
 app.use(checkoutRouter);
 
 /**

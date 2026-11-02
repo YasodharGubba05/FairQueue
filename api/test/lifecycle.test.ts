@@ -242,7 +242,7 @@ describe('Phase P8 — event lifecycle', () => {
         data: { userId: 'usr_lc_buyer', eventId: event.id, total: seat.price },
       });
       await prisma.ticket.create({
-        data: { orderId: order.id, eventId: event.id, seatId: seat.id },
+        data: { orderId: order.id, eventId: event.id, seatId: seat.id, ownerId: 'usr_lc_buyer' },
       });
 
       await completeFinishedEvents(prisma);
