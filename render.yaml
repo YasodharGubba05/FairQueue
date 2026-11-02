@@ -1,0 +1,70 @@
+# Render blueprint.
+#
+# Both services build from the repository root rather than from their own
+# directory, because worker/prisma/schema.prisma is a symlink to the api's copy
+# — which keeps the two from drifting, but cannot be followed from inside a
+# service root.
+#
+# Secrets are deliberately `sync: false`: Render prompts for them once and
+# stores them itself, so nothing sensitive is ever in this file.
+services:
+  - type: web
+    name: fairqueue-api
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix api ci && npm --prefix api run build
+    # migrate deploy, never migrate dev — the latter is interactive and
+    # rewrites migration history.
+    preDeployCommand: npm --prefix api exec prisma migrate deploy
+    startCommand: node api/dist/src/index.js
+    healthCheckPath: /readyz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MODE
+        value: fairqueue
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: EVENT_SYNC_INTERVAL_MINUTES
+        value: "360"
+      # Mission Control counts live instances from these, so each needs its own.
+      - key: POD_NAME
+        fromService:
+          type: web
+          name: fairqueue-api
+          property: host
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: TICKETMASTER_API_KEY
+        sync: false
+
+  - type: worker
+    name: fairqueue-worker
+    runtime: node
+    plan: free
+    # One instance, always. The worker is the only process allowed to move the
+    # queue forward; a second would hand out the same admission passes twice.
+    numInstances: 1
+    buildCommand: npm --prefix worker ci && npm --prefix worker run build
+    startCommand: node worker/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MODE
+        value: fairqueue
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false

@@ -11,7 +11,10 @@ const schema = z.object({
   JWT_SECRET: z.string().min(1).default('dev-only-change-me'),
   // naive: the deliberately broken "before" build used for benchmarks.
   MODE: z.enum(['naive', 'fairqueue']).default('fairqueue'),
+  // Render and most hosts inject PORT; API_PORT is the local convention.
+  // Whichever is set wins, so the same image runs in both places.
   API_PORT: z.coerce.number().default(4000),
+  PORT: z.coerce.number().optional(),
   // Kubernetes injects the pod name; Mission Control counts live pods from it.
   POD_NAME: z.string().default('api-local'),
   NODE_ENV: z.string().default('development'),
@@ -65,5 +68,9 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const env = parsed.data;
+export const env = {
+  ...parsed.data,
+  // A host-provided PORT always wins over the local default.
+  API_PORT: parsed.data.PORT ?? parsed.data.API_PORT,
+};
 export const isNaive = env.MODE === 'naive';

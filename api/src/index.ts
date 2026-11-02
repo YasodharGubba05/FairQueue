@@ -55,7 +55,13 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 });
 
 export const server = http.createServer(app);
-export const io = new Server(server, { cors: { origin: '*' }, path: '/socket.io' });
+export const io = new Server(server, {
+  // The browser connects to this origin directly, since a Vercel rewrite does
+  // not carry a websocket upgrade. A wildcard origin cannot carry credentials,
+  // so the frontend's origin is named.
+  cors: { origin: env.WEB_ORIGIN, credentials: true },
+  path: '/socket.io',
+});
 
 // Any api pod may need to push an update to a browser connected to a different
 // pod, so all pods share one Socket.io backbone through Redis pub/sub.

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm --prefix web ci && npm --prefix web run build",
+  "outputDirectory": "web/dist",
+  "installCommand": "echo skip",
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://PLACEHOLDER_API_HOST/api/:path*" },
+    { "source": "/:path*", "destination": "/index.html" }
+  ]
+}

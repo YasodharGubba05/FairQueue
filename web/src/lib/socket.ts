@@ -6,9 +6,27 @@ import { io, type Socket } from 'socket.io-client';
  */
 let socket: Socket | null = null;
 
+/**
+ * Where the websocket connects.
+ *
+ * In development and in Docker the page and the api share an origin, so this
+ * is empty and the socket connects back to the page. In the hosted deployment
+ * the api is behind a Vercel rewrite for HTTP — but a rewrite does not carry a
+ * websocket upgrade, so the socket has to go straight to the api's own origin.
+ *
+ * That connection is cross-origin and carries no cookie, which is fine: event
+ * rooms are public, and the per-user notification room is joined by presenting
+ * the access token over the socket rather than relying on one.
+ */
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? '';
+
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io({ path: '/socket.io', transports: ['websocket', 'polling'] });
+    socket = io(SOCKET_URL, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+    });
   }
   return socket;
 }
