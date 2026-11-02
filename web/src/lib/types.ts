@@ -171,3 +171,12 @@ export type TicketTimelineEntry = {
 };
 
 export type TicketDetail = { ticket: WalletTicket; timeline: TicketTimelineEntry[] };
+
+/** How fast a section is being taken, broadcast once a second by the worker. */
+export type SectionDemandTick = {
+  type: 'demand';
+  eventId: string;
+  sections: { section: string; claimRate: number; claimed: number }[];
+  totalClaimRate: number;
+  at: number;
+};

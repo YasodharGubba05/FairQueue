@@ -6,11 +6,16 @@ import { Label, StatusLabel } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SeatMapCanvas } from '@/components/seatmap/SeatMapCanvas';
+import { DemandPanel } from '@/components/seatmap/DemandPanel';
 import { SelectionTray } from '@/components/seatmap/SelectionTray';
 import { formatEventName } from '@/lib/utils';
 import { api, ApiError } from '@/lib/api';
 import { getSocket, subscribeToEvent } from '@/lib/socket';
-import type { EventSummary, HoldState, Seat, SeatStatus, SeatsUpdate } from '@/lib/types';
+import type {
+  EventSummary, HoldState, Seat, SeatStatus, SeatsUpdate, SectionDemandTick, StatsTick,
+} from '@/lib/types';
+import { hottestSection, summariseSections } from '@/lib/demand';
+import { priceTiers, tierForPrice } from '@/lib/seatmap';
 import { toast } from '@/store/toast';
 
 export default function SeatMap() {
@@ -25,6 +30,10 @@ export default function SeatMap() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
+  // Per-second rates from the worker, keyed by section. Counts are derived
+  // from the seat state below rather than fetched, so the two cannot disagree.
+  const [claimRates, setClaimRates] = useState<Record<string, number>>({});
+  const [inQueue, setInQueue] = useState<number | null>(null);
 
   // Clicks can outrun the network, so one hold request is in flight at a time.
   const inFlight = useRef(false);
@@ -92,13 +101,29 @@ export default function SeatMap() {
     const onConnect = () => setOnline(true);
     const onDisconnect = () => setOnline(false);
 
+    const onDemand = (tick: SectionDemandTick) => {
+      if (tick.eventId !== eventId) return;
+      setClaimRates(Object.fromEntries(tick.sections.map((s) => [s.section, s.claimRate])));
+    };
+
+    // The queue length comes from the reading Mission Control already
+    // broadcasts, rather than a second source for the same number.
+    const onStats = (tick: StatsTick) => {
+      if (tick.eventId !== eventId) return;
+      setInQueue(tick.inQueue);
+    };
+
     socket.on('seats:update', onSeats);
+    socket.on('demand:tick', onDemand);
+    socket.on('stats:tick', onStats);
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     setOnline(socket.connected);
 
     return () => {
       socket.off('seats:update', onSeats);
+      socket.off('demand:tick', onDemand);
+      socket.off('stats:tick', onStats);
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
       unsubscribe();
@@ -166,6 +191,13 @@ export default function SeatMap() {
     [seats, selected],
   );
 
+  const sections = useMemo(
+    () => summariseSections(seats ?? [], statuses, claimRates),
+    [seats, statuses, claimRates],
+  );
+  const hottest = useMemo(() => hottestSection(sections)?.section ?? null, [sections]);
+  const tiers = useMemo(() => priceTiers(seats ?? []), [seats]);
+
   if (error) {
     return (
       <div className="mx-auto max-w-page px-gutter py-16 lg:px-gutter-lg">
@@ -222,6 +254,17 @@ export default function SeatMap() {
           onPick={(seat) => void pick(seat)}
         />
       )}
+
+      {seats !== null ? (
+        <div className="mt-10">
+          <DemandPanel
+            sections={sections}
+            tierFor={(price) => tierForPrice(tiers, price)}
+            hottest={hottest}
+            buyersInQueue={inQueue}
+          />
+        </div>
+      ) : null}
 
       <p className="mx-auto mt-6 max-w-reading text-center text-xs leading-relaxed text-faint">
         Pick a seat and it is held for you for five minutes. Scroll to zoom, drag to move, or use

@@ -28,6 +28,7 @@ export function startBroadcastBridge() {
       if (msg.type === 'queue') io.to(eventRoom(msg.eventId)).emit('queue:tick', msg);
       if (msg.type === 'seats') io.to(eventRoom(msg.eventId)).emit('seats:update', msg);
       if (msg.type === 'stats') io.to(eventRoom(msg.eventId)).emit('stats:tick', msg);
+      if (msg.type === 'demand') io.to(eventRoom(msg.eventId)).emit('demand:tick', msg);
     } catch {
       // A malformed message is not worth crashing a pod over.
     }

@@ -7,6 +7,7 @@ import { ADMIT_LUA } from './lua/admit';
 import { EXPIRE_HOLDS_LUA } from './lua/expire';
 import { buildStats, nextTick, prunePods } from './stats';
 import { completeFinishedEvents } from './lifecycle';
+import { buildDemand } from './demand';
 
 /**
  * The worker is the one process that is allowed to move the line forward.
@@ -16,6 +17,7 @@ import { completeFinishedEvents } from './lifecycle';
  *   - releases seat holds that have expired and tells every browser
  *   - broadcasts one Mission Control reading per event per second
  *   - retires events once they are over
+ *   - broadcasts how fast each section of the venue is being taken
  *
  * Only one replica runs, so there is never a second process handing out passes.
  */
@@ -127,6 +129,16 @@ async function tick() {
     // Mission Control's reading for this second.
     const stats = await buildStats(redis, prisma, event, event._count.seats);
     await redis.publish(BROADCAST_CHANNEL, JSON.stringify(stats));
+
+    // How fast each section is going. Counts are left to the browsers, which
+    // already hold the live seat list; only the rate has to be server-side.
+    const demand = await buildDemand(redis, prisma, event.id);
+    if (demand.sections.length > 0) {
+      await redis.publish(
+        BROADCAST_CHANNEL,
+        JSON.stringify({ type: 'demand', eventId: event.id, ...demand, at: Date.now() }),
+      );
+    }
 
     // One message per event per second, not one per waiting user. Each browser
     // knows its own join number, so `admitted` is all it needs to work out its
